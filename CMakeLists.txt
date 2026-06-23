@@ -11,19 +11,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
-# ==============================================================================
-# Inclusione Asset Grafici Sambuca
-# ==============================================================================
-juce_add_binary_data(SambucaAssets
-    SOURCES
-        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Assets/background.png
-        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Assets/knob_base.png
-        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Assets/knob_glow.png
-        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Assets/knob_waveform_6steps.png
-        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Assets/slider_handle.png
-        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Assets/button_load_normal.png
-        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Assets/button_load_pressed.png
-)
 # Crea il formato VST3 e la versione Standalone del Synth
 juce_add_plugin(Sambuca
     COMPANY_NAME "MkMan"
@@ -35,7 +22,7 @@ juce_add_plugin(Sambuca
     NEEDS_MIDI_OUTPUT FALSE
 )
 
-# Elenco dei file sorgente (che andremo a creare)
+# Elenco dei file sorgente
 target_sources(Sambuca PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginProcessor.h
@@ -45,10 +32,9 @@ target_sources(Sambuca PRIVATE
     Source/SynthSound.h
 )
 
-# Abilita i moduli JUCE fondamentali (incluso il modulo DSP per filtri ed effetti)
+# Abilita i moduli JUCE fondamentali (senza SambucaAssets)
 target_link_libraries(Sambuca PRIVATE
     juce::juce_audio_utils
-    SambucaAssets
     juce::juce_audio_processors
     juce::juce_dsp
     juce::juce_gui_extra
