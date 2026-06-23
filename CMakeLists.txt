@@ -22,16 +22,14 @@ juce_add_plugin(Sambuca
     NEEDS_MIDI_OUTPUT FALSE
 )
 
-# Elenco dei file sorgente con percorsi assoluti
+# Elenco dei file sorgente corretto in base alla struttura reale
 target_sources(Sambuca PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/Source/PluginProcessor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/Source/PluginProcessor.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/Source/PluginEditor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/Source/PluginEditor.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/Source/SynthVoice.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/Source/SynthSound.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/Sambuca/Source/PluginProcessor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Sambuca/Source/PluginProcessor.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/Sambuca/Source/PluginEditor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Sambuca/Source/PluginEditor.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/Sambuca/Source/SynthVoice.h
 )
-
 # Abilita i moduli JUCE fondamentali (senza SambucaAssets)
 target_link_libraries(Sambuca PRIVATE
     juce::juce_audio_utils
