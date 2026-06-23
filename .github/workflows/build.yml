@@ -48,7 +48,7 @@ jobs:
         Get-ChildItem -Path .\build -Filter "*.exe" -Recurse | Copy-Item -Destination .\artifacts
 
     - name: Carica VST3 e Standalone su GitHub
-      uses: actions/actions-artifact@v3
+      uses: actions/upload-artifact@v4  # <-- Corretto qui!
       with:
         name: Sambuca-Windows-Build
         path: ./artifacts/
