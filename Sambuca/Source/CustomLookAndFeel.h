@@ -5,11 +5,15 @@ class SambucaLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     SambucaLookAndFeel()
-    {
-        // Carichiamo le immagini dalla memoria binaria di JUCE
-        knobBase = juce::ImageCache::getFromMemory(BinaryData::knob_base_png, BinaryData::knob_base_pngSize);
-        knobGlow = juce::ImageCache::getFromMemory(BinaryData::knob_glow_png, BinaryData::knob_glow_pngSize);
-    }
+{
+    // Trova la cartella dove risiede il plugin/eseguibile corrente
+    auto currentFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
+    auto assetsFolder = currentFile.getParentDirectory().getChildFile("Assets");
+
+    // Carica le immagini direttamente dai file PNG esterni
+    knobBase = juce::ImageFileFormat::loadFrom(assetsFolder.getChildFile("knob_base.png"));
+    knobGlow = juce::ImageFileFormat::loadFrom(assetsFolder.getChildFile("knob_glow.png"));
+}
 
     void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
                           float sliderPosProportional, float rotaryStartAngle, float rotaryEndAngle,
