@@ -16,15 +16,14 @@ FetchContent_MakeAvailable(JUCE)
 # ==============================================================================
 juce_add_binary_data(SambucaAssets
     SOURCES
-        Source/Assets/background.png
-        Source/Assets/knob_base.png
-        Source/Assets/knob_glow.png
-        Source/Assets/knob_waveform_6steps.png
-        Source/Assets/slider_handle.png
-        Source/Assets/button_load_normal.png
-        Source/Assets/button_load_pressed.png
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Assets/background.png
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Assets/knob_base.png
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Assets/knob_glow.png
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Assets/knob_waveform_6steps.png
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Assets/slider_handle.png
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Assets/button_load_normal.png
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Assets/button_load_pressed.png
 )
-
 # Crea il formato VST3 e la versione Standalone del Synth
 juce_add_plugin(Sambuca
     COMPANY_NAME "MkMan"
