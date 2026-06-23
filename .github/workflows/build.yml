@@ -37,16 +37,18 @@ jobs:
       run: |
         cmake --build build --config Release --parallel 4
 
-    - name: Raccogli gli Artefatti Compilati
+    - name: Raccogli gli Artefatti Compilati e Asset Esterne
       shell: powershell
       run: |
-        # Crea una cartella pulita per l'output
+        # Crea la cartella pulita per l'output finale dello ZIP
         New-Item -ItemType Directory -Force -Path .\artifacts
         
-        # Cerca e copia il VST3 e l'EXE appena creati (JUCE di solito li mette in build/..._Artefacts)
+        # Cerca e copia il VST3 e l'EXE appena creati
         Get-ChildItem -Path .\build -Filter "*.vst3" -Recurse | Copy-Item -Destination .\artifacts -Recurse
         Get-ChildItem -Path .\build -Filter "*.exe" -Recurse | Copy-Item -Destination .\artifacts
 
+        # Copia la cartella delle immagini rinominandola in "Assets" e mettendola accanto ai file
+        Copy-Item -Path .\Source\Assets -Destination .\artifacts\Assets -Recurse
     - name: Carica VST3 e Standalone su GitHub
       uses: actions/upload-artifact@v4  # <-- Corretto qui!
       with:
