@@ -4,9 +4,10 @@
 SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
-    // 1. Carica lo sfondo con il tuo logo
-    backgroundImage = juce::ImageCache::getFromMemory(BinaryData::background_png, BinaryData::background_pngSize);
-    setSize (1024, 600);
+    // carica sfondo
+auto currentFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
+auto assetsFolder = currentFile.getParentDirectory().getChildFile("Assets");
+backgroundImage = juce::ImageFileFormat::loadFrom(assetsFolder.getChildFile("background.png"));
 
     // 2. CREAZIONE E MAPPATURA AUTOMATICA DI TUTTI I 34 PARAMETRI
     
