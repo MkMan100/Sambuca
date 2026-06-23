@@ -40,8 +40,12 @@ jobs:
     - name: Raccogli gli Artefatti Compilati e Asset Esterne
       shell: powershell
       run: |
-        # Crea la cartella pulita per l'output finale dello ZIP
         New-Item -ItemType Directory -Force -Path .\artifacts
+        Get-ChildItem -Path .\build -Filter "*.vst3" -Recurse | Copy-Item -Destination .\artifacts -Recurse
+        Get-ChildItem -Path .\build -Filter "*.exe" -Recurse | Copy-Item -Destination .\artifacts
+        
+        # Percorso aggiornato con la doppia cartella Sambuca
+        Copy-Item -Path .\Sambuca\Source\Assets -Destination .\artifacts\Assets -Recurse
         
         # Cerca e copia il VST3 e l'EXE appena creati
         Get-ChildItem -Path .\build -Filter "*.vst3" -Recurse | Copy-Item -Destination .\artifacts -Recurse
