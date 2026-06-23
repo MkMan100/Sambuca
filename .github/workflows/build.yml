@@ -1,0 +1,54 @@
+name: Build Sambuca Plugin (Windows)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+
+    steps:
+    - name: Checkout del codice
+      uses: actions/checkout@v4
+      with:
+        submodules: true # Utile se hai JUCE come sottomodulo git
+
+    - name: Configura MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Configura CMake
+      uses: lukka/get-cmake@latest
+
+    - name: Ripristina o Installa le dipendenze di sistema (se necessarie)
+      shell: powershell
+      run: |
+        # GitHub Windows Runners hanno già installato Visual Studio e gli SDK necessari
+
+    - name: Configura il progetto con CMake
+      shell: bash
+      run: |
+        cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+
+    - name: Compila il VST3 e l'EXE Standalone
+      shell: bash
+      run: |
+        cmake --build build --config Release --parallel 4
+
+    - name: Raccogli gli Artefatti Compilati
+      shell: powershell
+      run: |
+        # Crea una cartella pulita per l'output
+        New-Item -ItemType Directory -Force -Path .\artifacts
+        
+        # Cerca e copia il VST3 e l'EXE appena creati (JUCE di solito li mette in build/..._Artefacts)
+        Get-ChildItem -Path .\build -Filter "*.vst3" -Recurse | Copy-Item -Destination .\artifacts -Recurse
+        Get-ChildItem -Path .\build -Filter "*.exe" -Recurse | Copy-Item -Destination .\artifacts
+
+    - name: Carica VST3 e Standalone su GitHub
+      uses: actions/actions-artifact@v3
+      with:
+        name: Sambuca-Windows-Build
+        path: ./artifacts/
