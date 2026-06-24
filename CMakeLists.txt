@@ -10,8 +10,6 @@ FetchContent_Declare(
     GIT_TAG        7.0.5 # Versione stabile e collaudata
 )
 FetchContent_MakeAvailable(JUCE)
-# Disabilita la compatibilità VST2 nel wrapper VST3 per evitare file mancanti
-juce_set_vst3_compatibility_extensions(Sambuca DISABLE)
 
 # Crea il formato VST3 e la versione Standalone del Synth
 juce_add_plugin(Sambuca
@@ -32,7 +30,8 @@ target_sources(Sambuca PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Sambuca/Source/PluginEditor.h
     ${CMAKE_CURRENT_SOURCE_DIR}/Sambuca/Source/SynthVoice.h
 )
-# Abilita i moduli JUCE fondamentali (senza SambucaAssets)
+
+# Abilita i moduli JUCE fondamentali
 target_link_libraries(Sambuca PRIVATE
     juce::juce_audio_utils
     juce::juce_audio_processors
@@ -42,3 +41,6 @@ target_link_libraries(Sambuca PRIVATE
 
 # Forza lo standard C++17 per garantire la compatibilità sul server GitHub
 target_compile_features(Sambuca PRIVATE cxx_std_17)
+
+# DISABILITA COMPATIBILITÀ VST2 (Risolve l'errore di vstfxstore.h mancante)
+target_compile_definitions(Sambuca PUBLIC JUCE_VST3_CAN_REPLACE_VST2=0)
