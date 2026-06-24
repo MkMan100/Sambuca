@@ -1,9 +1,0 @@
-name: Debug Paths
-on: [push]
-jobs:
-  list-files:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: List Files
-      run: Get-ChildItem -Recurse
