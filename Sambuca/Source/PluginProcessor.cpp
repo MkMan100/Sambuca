@@ -144,11 +144,11 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         float cutoff = cutoffPtr->load();
         float res = resPtr->load();
 
-        // Usa i metodi nativi della classe StateVariableTPTFilter
-        if (typeIdx == 0) filter.setToLowPass();
-        else if (typeIdx == 1) filter.setToHighPass();
-        else if (typeIdx == 2) filter.setToBandPass();
-        else filter.setToNotch(); 
+        // Mappa corretta degli enum in CamelCase per StateVariableTPTFilterType
+        if (typeIdx == 0) filter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
+        else if (typeIdx == 1) filter.setType(juce::dsp::StateVariableTPTFilterType::highpass);
+        else if (typeIdx == 2) filter.setType(juce::dsp::StateVariableTPTFilterType::bandpass);
+        else filter.setType(juce::dsp::StateVariableTPTFilterType::notch);
         
         filter.setCutoffFrequency(cutoff);
         filter.setResonance(res);
