@@ -10,6 +10,8 @@ FetchContent_Declare(
     GIT_TAG        7.0.5 # Versione stabile e collaudata
 )
 FetchContent_MakeAvailable(JUCE)
+# Disabilita la compatibilità VST2 nel wrapper VST3 per evitare file mancanti
+juce_set_vst3_compatibility_extensions(Sambuca DISABLE)
 
 # Crea il formato VST3 e la versione Standalone del Synth
 juce_add_plugin(Sambuca
