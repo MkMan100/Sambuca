@@ -144,11 +144,9 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         float cutoff = cutoffPtr->load();
         float res = resPtr->load();
 
-        // Mappa corretta degli enum in CamelCase per StateVariableTPTFilterType
-        if (typeIdx == 0) filter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
-        else if (typeIdx == 1) filter.setType(juce::dsp::StateVariableTPTFilterType::highpass);
-        else if (typeIdx == 2) filter.setType(juce::dsp::StateVariableTPTFilterType::bandpass);
-        else filter.setType(juce::dsp::StateVariableTPTFilterType::notch);
+        // Forza il tipo filtro usando il valore numerico dell'enum interno di JUCE
+        // 0 = lowpass, 1 = highpass, 2 = bandpass, 3 = notch
+        filter.setType (static_cast<typename std::decay_t<decltype(filter)>::Type> (typeIdx));
         
         filter.setCutoffFrequency(cutoff);
         filter.setResonance(res);
