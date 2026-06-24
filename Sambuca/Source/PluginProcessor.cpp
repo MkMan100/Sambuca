@@ -13,7 +13,7 @@ SambucaAudioProcessor::SambucaAudioProcessor()
                      #endif
                        ),
 #endif
-       apvts(*this, nullptr, "Parameters", createParameterLayout()) // Inizializzazione APVTS
+        apvts(*this, nullptr, "Parameters", createParameterLayout()) // Inizializzazione APVTS
 {
     formatManager.registerBasicFormats();
 
@@ -136,27 +136,36 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     juce::dsp::ProcessContextReplacing<float> context(block);
 
     // 2. AGGIORNAMENTO LIVE PARAMETRI FILTRI ED ELABORAZIONE IN CASCATA
-    auto updateFilter = [](auto& filter, int typeIdx, float cutoff, float res, float drive) 
+    auto updateFilter = [](auto& filter, std::atomic<float>* typePtr, std::atomic<float>* cutoffPtr, std::atomic<float>* resPtr, std::atomic<float>* drivePtr) 
     {
+        if (typePtr == nullptr || cutoffPtr == nullptr || resPtr == nullptr) return;
+
+        // Estrae in modo sicuro i valori float atomici
+        int typeIdx = static_cast<int>(typePtr->load());
+        float cutoff = cutoffPtr->load();
+        float res = resPtr->load();
+
         // Mappa la scelta del tipo filtro all'algoritmo SVF specifico
         if (typeIdx == 0) filter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
         else if (typeIdx == 1) filter.setType(juce::dsp::StateVariableTPTFilterType::highpass);
         else if (typeIdx == 2) filter.setType(juce::dsp::StateVariableTPTFilterType::bandpass);
-        else filter.setType(juce::dsp::StateVariableTPTFilterType::notch);
+        else filter.setType(juce::dsp::StateVariableTPTFilterType::notch); // Corretto qui!
         
         filter.setCutoffFrequency(cutoff);
         filter.setResonance(res);
     };
 
-    updateFilter(filter1, *apvts.getRawParameterValue("filter1Type"), *apvts.getRawParameterValue("filter1Cutoff"), *apvts.getRawParameterValue("filter1Resonance"), *apvts.getRawParameterValue("filter1Drive"));
-    updateFilter(filter2, *apvts.getRawParameterValue("filter2Type"), *apvts.getRawParameterValue("filter2Cutoff"), *apvts.getRawParameterValue("filter2Resonance"), *apvts.getRawParameterValue("filter2Drive"));
+    updateFilter(filter1, apvts.getRawParameterValue("filter1Type"), apvts.getRawParameterValue("filter1Cutoff"), apvts.getRawParameterValue("filter1Resonance"), apvts.getRawParameterValue("filter1Drive"));
+    updateFilter(filter2, apvts.getRawParameterValue("filter2Type"), apvts.getRawParameterValue("filter2Cutoff"), apvts.getRawParameterValue("filter2Resonance"), apvts.getRawParameterValue("filter2Drive"));
 
     // Applica Filtro 1 e poi Filtro 2 in cascata (Serie)
     filter1.process(context);
     filter2.process(context);
 
     // 3. SEZIONE EFFETTI SPAZIALI (Delay & Reverb in Mandata / Mix)
-    float fxMix = *apvts.getRawParameterValue("fxMix");
+    auto* fxMixPtr = apvts.getRawParameterValue("fxMix");
+    float fxMix = (fxMixPtr != nullptr) ? fxMixPtr->load() : 0.2f;
+
     if (fxMix > 0.0f)
     {
         delayBuffer.makeCopyOf(buffer); // Copia segnale dry per lavorazione FX
@@ -164,12 +173,14 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         juce::dsp::ProcessContextReplacing<float> delayContext(delayBlock);
 
         // Imposta il tempo del delay convertendo i secondi in campioni
-        float delaySecs = *apvts.getRawParameterValue("delayTime");
+        auto* delayTimePtr = apvts.getRawParameterValue("delayTime");
+        float delaySecs = (delayTimePtr != nullptr) ? delayTimePtr->load() : 0.3f;
         delayModule.setDelay(delaySecs * currentSampleRate);
         delayModule.process(delayContext);
 
         // Aggiorna parametri riverbero
-        reverbParameters.roomSize = *apvts.getRawParameterValue("reverbSize");
+        auto* reverbSizePtr = apvts.getRawParameterValue("reverbSize");
+        reverbParameters.roomSize = (reverbSizePtr != nullptr) ? reverbSizePtr->load() : 0.5f;
         reverbParameters.wetLevel = fxMix;
         reverbParameters.dryLevel = 1.0f - fxMix;
         reverbModule.setParameters(reverbParameters);
@@ -183,7 +194,8 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     }
 
     // 4. REGOLAZIONE VOLUME MASTER FINALE
-    float masterGain = *apvts.getRawParameterValue("masterVolume");
+    auto* masterGainPtr = apvts.getRawParameterValue("masterVolume");
+    float masterGain = (masterGainPtr != nullptr) ? masterGainPtr->load() : 0.8f;
     buffer.applyGain(masterGain);
 }
 
