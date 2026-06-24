@@ -140,21 +140,19 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     {
         if (typePtr == nullptr || cutoffPtr == nullptr || resPtr == nullptr) return;
 
-        // Estrae in modo sicuro i valori float atomici
         int typeIdx = static_cast<int>(typePtr->load());
         float cutoff = cutoffPtr->load();
         float res = resPtr->load();
 
-        // Mappa la scelta del tipo filtro all'algoritmo SVF specifico
+        // Mappa la scelta del tipo filtro all'algoritmo SVF specifico (Notch con la N maiuscola!)
         if (typeIdx == 0) filter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
         else if (typeIdx == 1) filter.setType(juce::dsp::StateVariableTPTFilterType::highpass);
         else if (typeIdx == 2) filter.setType(juce::dsp::StateVariableTPTFilterType::bandpass);
-        else filter.setType(juce::dsp::StateVariableTPTFilterType::notch); // Corretto qui!
+        else filter.setType(juce::dsp::StateVariableTPTFilterType::Notch); 
         
         filter.setCutoffFrequency(cutoff);
         filter.setResonance(res);
     };
-
     updateFilter(filter1, apvts.getRawParameterValue("filter1Type"), apvts.getRawParameterValue("filter1Cutoff"), apvts.getRawParameterValue("filter1Resonance"), apvts.getRawParameterValue("filter1Drive"));
     updateFilter(filter2, apvts.getRawParameterValue("filter2Type"), apvts.getRawParameterValue("filter2Cutoff"), apvts.getRawParameterValue("filter2Resonance"), apvts.getRawParameterValue("filter2Drive"));
 
