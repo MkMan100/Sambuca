@@ -40,19 +40,24 @@ jobs:
     - name: Raccogli gli Artefatti Compilati e Asset Esterne
       shell: powershell
       run: |
+        # Crea la cartella degli artefatti pulita
         New-Item -ItemType Directory -Force -Path .\artifacts
-        Get-ChildItem -Path .\build -Filter "*.vst3" -Recurse | Copy-Item -Destination .\artifacts -Recurse
-        Get-ChildItem -Path .\build -Filter "*.exe" -Recurse | Copy-Item -Destination .\artifacts
-        
-        # Percorso aggiornato con la doppia cartella Sambuca
-        Copy-Item -Path .\Sambuca\Source\Assets -Destination .\artifacts\Assets -Recurse
-        
-        # Cerca e copia il VST3 e l'EXE appena creati
-        Get-ChildItem -Path .\build -Filter "*.vst3" -Recurse | Copy-Item -Destination .\artifacts -Recurse
-        Get-ChildItem -Path .\build -Filter "*.exe" -Recurse | Copy-Item -Destination .\artifacts
 
-        # Copia la cartella delle immagini rinominandola in "Assets" e mettendola accanto ai file
-        Copy-Item -Path .\Source\Assets -Destination .\artifacts\Assets -Recurse
+        # Copia il bundle VST3 (gestendo correttamente le cartelle)
+        Get-ChildItem -Path .\build -Filter "*.vst3" -Recurse | ForEach-Object {
+            $dest = Join-Path ".\artifacts" $_.Name
+            Copy-Item -Path $_.FullName -Destination $dest -Recurse -Force
+        }
+
+        # Copia l'eseguibile Standalone (.exe)
+        Get-ChildItem -Path .\build -Filter "*.exe" -Recurse | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination .\artifacts -Force
+        }
+        
+        # Copia la cartella degli Asset grafici
+        if (Test-Path .\Sambuca\Source\Assets) {
+            Copy-Item -Path .\Sambuca\Source\Assets -Destination .\artifacts\Assets -Recurse -Force
+        }
     - name: Carica VST3 e Standalone su GitHub
       uses: actions/upload-artifact@v4  # <-- Corretto qui!
       with:
