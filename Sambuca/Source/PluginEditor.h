@@ -18,7 +18,7 @@ private:
     SambucaAudioProcessor& audioProcessor;
     SambucaLookAndFeel sambucaLookAndFeel;
 
-    // Struttura di supporto per raggruppare uno Slider e il suo Attachment automatico ad APVTS
+    // Struttura di supporto per raggruppare uno Slider e il suo Attachment
     struct ConnectedSlider
     {
         std::unique_ptr<juce::Slider> slider;
@@ -26,7 +26,8 @@ private:
         juce::String section; // Identifica a quale macro-area appartiene il controllo
     };
 
-    std::vector<ConnectedSlider> connectedSliders;
+    // Modificato in un vettore di unique_ptr per evitare riallocazioni di memoria distruttive
+    std::vector<std::unique_ptr<ConnectedSlider>> connectedSliders;
     juce::Image backgroundImage;
 
     // Helper per creare e collegare al volo un knob generico
