@@ -1,20 +1,17 @@
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
-#include <juce_core/juce_core.h> // Risolve l'errore di jmin non trovato
+#include <juce_core/juce_core.h>
+#include "BinaryData.h" // <--- File autogenerato da CMake
 
 class SambucaLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     SambucaLookAndFeel()
     {
-        // Trova la cartella dove risiede il plugin/eseguibile corrente
-        auto currentFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
-        auto assetsFolder = currentFile.getParentDirectory().getChildFile("Assets");
-
-        // Carica le immagini direttamente dai file PNG esterni
-        knobBase = juce::ImageFileFormat::loadFrom(assetsFolder.getChildFile("knob_base.png"));
-        knobGlow = juce::ImageFileFormat::loadFrom(assetsFolder.getChildFile("knob_glow.png"));
+        // Carica le immagini direttamente dalla memoria (Risolve il quadratino nero)
+        knobBase = juce::ImageFileFormat::loadFrom(BinaryData::knob_base_png, BinaryData::knob_base_pngSize);
+        knobGlow = juce::ImageFileFormat::loadFrom(BinaryData::knob_glow_png, BinaryData::knob_glow_pngSize);
     }
 
     void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
