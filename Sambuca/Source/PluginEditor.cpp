@@ -7,7 +7,7 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     // carica sfondo
 auto currentFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
 auto assetsFolder = currentFile.getParentDirectory().getChildFile("Assets");
-backgroundImage = juce::ImageFileFormat::loadFrom(assetsFolder.getChildFile("background.png"));
+backgroundImage = juce::ImageFileFormat::loadFrom(BinaryData::background_png, BinaryData::background_pngSize);
 
     // 2. CREAZIONE E MAPPATURA AUTOMATICA DI TUTTI I 34 PARAMETRI
     
