@@ -139,12 +139,12 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         cutoff = juce::jlimit(20.0f, 20000.0f, cutoff);
         res = juce::jlimit(0.1f, 10.0f, res);
         
-        using Type = juce::dsp::StateVariableTPTFilterType;
+        using FilterType = typename std::decay_t<decltype(filter)>::Type;
         
-        if (typeIdx == 0)      filter.setType(Type::lowpass);
-        else if (typeIdx == 1) filter.setType(Type::highpass);
-        else if (typeIdx == 2) filter.setType(Type::bandpass);
-        else if (typeIdx == 3) filter.setType(Type::notch);
+        if (typeIdx == 0)      filter.setType(FilterType::lowpass);
+        else if (typeIdx == 1) filter.setType(FilterType::highpass);
+        else if (typeIdx == 2) filter.setType(FilterType::bandpass);
+        else if (typeIdx == 3) filter.setType(FilterType::notch);
         
         filter.setCutoffFrequency(cutoff);
         filter.setResonance(res);
