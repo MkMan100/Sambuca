@@ -148,11 +148,11 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         cutoff = juce::jlimit(20.0f, 20000.0f, cutoff);
         res = juce::jlimit(0.1f, 10.0f, res);
 
-        // Corretti con la prima lettera MAIUSCOLA per JUCE
-        if (typeIdx == 0)      filter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
-        else if (typeIdx == 1) filter.setType(juce::dsp::StateVariableTPTFilterType::highpass);
-        else if (typeIdx == 2) filter.setType(juce::dsp::StateVariableTPTFilterType::bandpass);
-        else if (typeIdx == 3) filter.setType(juce::dsp::StateVariableTPTFilterType::notch);
+        // Tipi di filtro corretti con la prima lettera MAIUSCOLA per JUCE
+        if (typeIdx == 0)      filter.setType(juce::dsp::StateVariableTPTFilterType::Lowpass);
+        else if (typeIdx == 1) filter.setType(juce::dsp::StateVariableTPTFilterType::Highpass);
+        else if (typeIdx == 2) filter.setType(juce::dsp::StateVariableTPTFilterType::Bandpass);
+        else if (typeIdx == 3) filter.setType(juce::dsp::StateVariableTPTFilterType::Notch);
         
         filter.setCutoffFrequency(cutoff);
         filter.setResonance(res);
