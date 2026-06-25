@@ -136,8 +136,7 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     juce::dsp::ProcessContextReplacing<float> context(block);
 
     // 2. AGGIORNAMENTO LIVE PARAMETRI FILTRI ED ELABORAZIONE
-    // NOTA: Assicurati che filter1 e filter2 siano juce::dsp::StateVariableTPTFilter o simili nel file .h
-    auto updateFilter = [this](auto& filter, std::atomic<float>* typePtr, std::atomic<float>* cutoffPtr, std::atomic<float>* resPtr) 
+    auto updateFilter = [](auto& filter, std::atomic<float>* typePtr, std::atomic<float>* cutoffPtr, std::atomic<float>* resPtr) 
     {
         if (typePtr == nullptr || cutoffPtr == nullptr || resPtr == nullptr) return;
 
@@ -149,7 +148,7 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         cutoff = juce::jlimit(20.0f, 20000.0f, cutoff);
         res = juce::jlimit(0.1f, 10.0f, res);
 
-        // Impostazione corretta del tipo di filtro basata sul modulo StateVariableTPTFilter
+        // Corretti con la prima lettera MAIUSCOLA per JUCE
         if (typeIdx == 0)      filter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
         else if (typeIdx == 1) filter.setType(juce::dsp::StateVariableTPTFilterType::highpass);
         else if (typeIdx == 2) filter.setType(juce::dsp::StateVariableTPTFilterType::bandpass);
@@ -180,7 +179,6 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         auto* delayTimePtr = apvts.getRawParameterValue("delayTime");
         float delaySecs = (delayTimePtr != nullptr) ? delayTimePtr->load() : 0.3f;
         
-        // Protezione sul sample rate e sul tempo di delay
         if (currentSampleRate > 0)
         {
             delayModule.setDelay(juce::jlimit(0.0f, 2.0f, delaySecs) * currentSampleRate);
@@ -200,6 +198,11 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         }
     }
 
+    // 4. REGOLAZIONE VOLUME MASTER FINALE
+    auto* masterGainPtr = apvts.getRawParameterValue("masterVolume");
+    float masterGain = (masterGainPtr != nullptr) ? masterGainPtr->load() : 0.8f;
+    buffer.applyGain(juce::jlimit(0.0f, 1.0f, masterGain));
+}
     // 4. REGOLAZIONE VOLUME MASTER FINALE
     auto* masterGainPtr = apvts.getRawParameterValue("masterVolume");
     float masterGain = (masterGainPtr != nullptr) ? masterGainPtr->load() : 0.8f;
