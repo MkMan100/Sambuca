@@ -143,8 +143,7 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         
         if (typeIdx == 0)      filter.setType(FilterType::lowpass);
         else if (typeIdx == 1) filter.setType(FilterType::highpass);
-        else if (typeIdx == 2) filter.setType(FilterType::bandpass);
-        else if (typeIdx == 3) filter.setType(FilterType::notch);
+        else                   filter.setType(FilterType::bandpass); // Fallback per Notch (non supportato da questa classe)
         
         filter.setCutoffFrequency(cutoff);
         filter.setResonance(res);
