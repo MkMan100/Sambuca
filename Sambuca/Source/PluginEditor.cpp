@@ -1,9 +1,15 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor& p)
-    : AudioProcessorEditor (&p), audioProcessor (p)
+SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor()
 {
+    // Scollega in sicurezza il LookAndFeel da tutti gli slider prima della distruzione
+    for (auto& cs : connectedSliders)
+    {
+        if (cs != nullptr && cs->slider != nullptr)
+            cs->slider->setLookAndFeel(nullptr);
+    }
+}
     // 1. IMPOSTA LE DIMENSIONI DELLA FINESTRA
     setSize (1024, 600);
 
