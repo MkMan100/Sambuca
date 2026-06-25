@@ -1,7 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-// Inizializzazione del costruttore includendo la creazione dei parametri APVTS
 SambucaAudioProcessor::SambucaAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
      : AudioProcessor (BusesProperties()
@@ -13,7 +12,7 @@ SambucaAudioProcessor::SambucaAudioProcessor()
                      #endif
                        ),
 #endif
-        apvts(*this, nullptr, "Parameters", createParameterLayout()) // Inizializzazione APVTS
+        apvts(*this, nullptr, "Parameters", createParameterLayout())
 {
     formatManager.registerBasicFormats();
 
@@ -26,24 +25,11 @@ SambucaAudioProcessor::SambucaAudioProcessor()
     mySynth.clearSounds();
     mySynth.addSound (new SynthSound());
 
-    // Impostazione della dimensione massima di delay supportata
     delayModule.setMaximumDelayInSamples(384000);
 }
 
 SambucaAudioProcessor::~SambucaAudioProcessor() {}
 
-const juce::String SambucaAudioProcessor::getName() const { return JucePlugin_Name; }
-bool SambucaAudioProcessor::acceptsMidi() const { return true; }
-bool SambucaAudioProcessor::producesMidi() const { return false; }
-bool SambucaAudioProcessor::isMidiEffect() const { return false; }
-double SambucaAudioProcessor::getTailLengthSeconds() const { return 0.0; }
-int SambucaAudioProcessor::getNumPrograms() { return 1; }
-int SambucaAudioProcessor::getCurrentProgram() { return 0; }
-void SambucaAudioProcessor::setCurrentProgram (int index) {}
-const juce::String SambucaAudioProcessor::getProgramName (int index) { return {}; }
-void SambucaAudioProcessor::changeProgramName (int index, const juce::String& newName) {}
-
-// Funzione che crea e mappa l'elenco dei 34 parametri richiesti dalla plancia
 juce::AudioProcessorValueTreeState::ParameterLayout SambucaAudioProcessor::createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
@@ -83,7 +69,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SambucaAudioProcessor::creat
     params.push_back(std::make_unique<juce::AudioParameterFloat>("reverbSize", "Reverb Space Size", 0.0f, 1.0f, 0.5f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("fxMix", "FX Wet/Dry Mix", 0.0f, 1.0f, 0.2f));
 
-    // 5. PARAMETRI GLOBALI & INVOLUPPO BREAKPOINT
+    // 5. PARAMETRI GLOBALI
     params.push_back(std::make_unique<juce::AudioParameterFloat>("wavetableMorph", "Wavetable Morphing", 0.0f, 1.0f, 0.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("masterVolume", "Master Volume", 0.0f, 1.0f, 0.8f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("envTimeScale", "Envelope Time Scale", 0.1f, 10.0f, 1.0f));
@@ -128,27 +114,6 @@ void SambucaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
 
 void SambucaAudioProcessor::releaseResources() {}
 
-#ifndef JucePlugin_PreferredChannelConfigurations
-bool SambucaAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
-{
-  #if JucePlugin_IsMidiEffect
-    juce::ignoreUnused (layouts);
-    return true;
-  #else
-    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
-        return false;
-
-   #if ! JucePlugin_IsSynth
-    if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
-        return false;
-   #endif
-
-    return true;
-  #endif
-}
-#endif
-
 void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -158,14 +123,11 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    // 1. Generazione del suono base dai 3 oscillatori della Synthesiser
     mySynth.renderNextBlock (buffer, midiMessages, 0, buffer.getNumSamples());
 
-    // Configurazione del blocco DSP per l'elaborazione successiva
     juce::dsp::AudioBlock<float> block(buffer);
     juce::dsp::ProcessContextReplacing<float> context(block);
 
-    // 2. AGGIORNAMENTO LIVE PARAMETRI FILTRI ED ELABORAZIONE IN CASCATA
     auto updateFilter = [](auto& filter, std::atomic<float>* typePtr, std::atomic<float>* cutoffPtr, std::atomic<float>* resPtr) 
     {
         if (typePtr == nullptr || cutoffPtr == nullptr || resPtr == nullptr) return;
@@ -194,7 +156,6 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     filter1.process(context);
     filter2.process(context);
 
-    // 3. SEZIONE EFFETTI SPAZIALI (Delay & Reverb in Mandata / Mix)
     auto* fxMixPtr = apvts.getRawParameterValue("fxMix");
     float fxMix = (fxMixPtr != nullptr) ? fxMixPtr->load() : 0.2f;
     fxMix = juce::jlimit(0.0f, 1.0f, fxMix);
@@ -227,13 +188,10 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         }
     }
 
-    // 4. REGOLAZIONE VOLUME MASTER FINALE
     auto* masterGainPtr = apvts.getRawParameterValue("masterVolume");
     float masterGain = (masterGainPtr != nullptr) ? masterGainPtr->load() : 0.8f;
     buffer.applyGain(juce::jlimit(0.0f, 1.0f, masterGain));
 }
-
-bool SambucaAudioProcessor::hasEditor() const { return true; }
 
 juce::AudioProcessorEditor* SambucaAudioProcessor::createEditor()
 {
