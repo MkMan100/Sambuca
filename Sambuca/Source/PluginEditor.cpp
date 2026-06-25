@@ -1,15 +1,9 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor()
+SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor& p)
+    : AudioProcessorEditor (&p), audioProcessor (p)
 {
-    // Scollega in sicurezza il LookAndFeel da tutti gli slider prima della distruzione
-    for (auto& cs : connectedSliders)
-    {
-        if (cs != nullptr && cs->slider != nullptr)
-            cs->slider->setLookAndFeel(nullptr);
-    }
-}
     // 1. IMPOSTA LE DIMENSIONI DELLA FINESTRA
     setSize (1024, 600);
 
@@ -57,8 +51,17 @@ SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor()
     createAndConnectKnob ("masterVolume", "GLOBAL");
     createAndConnectKnob ("envTimeScale", "GLOBAL");
 
-    // FONDAMENTALE: Forza il calcolo delle posizioni dei knob appena creati
+    // Forza il calcolo iniziale delle posizioni dei controlli
     resized();
+} // <-- Questa parentesi si era persa o era stata inserita male prima
+
+SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor()
+{
+    for (auto& cs : connectedSliders)
+    {
+        if (cs != nullptr && cs->slider != nullptr)
+            cs->slider->setLookAndFeel (nullptr);
+    }
 }
 
 void SambucaAudioProcessorEditor::createAndConnectKnob (const juce::String& parameterID, const juce::String& sectionName)
@@ -67,14 +70,14 @@ void SambucaAudioProcessorEditor::createAndConnectKnob (const juce::String& para
     cs->slider = std::make_unique<juce::Slider>();
     cs->section = sectionName;
 
-    cs->slider->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    cs->slider->setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 16);
+    cs->slider->setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
+    cs->slider->setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 16);
 
     cs->attachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         audioProcessor.apvts, parameterID, *cs->slider);
 
-    addAndMakeVisible(*cs->slider);
-    connectedSliders.push_back(std::move(cs)); 
+    addAndMakeVisible (*cs->slider);
+    connectedSliders.push_back (std::move(cs)); 
 }
 
 void SambucaAudioProcessorEditor::paint (juce::Graphics& g)
@@ -105,7 +108,6 @@ void SambucaAudioProcessorEditor::resized()
     int fxCount = 0;
     int globalCount = 0;
 
-    // Iterazione sicura tramite puntatori memorizzati nel vettore
     for (const auto& cs : connectedSliders)
     {
         if (cs->slider == nullptr) continue;
@@ -114,31 +116,31 @@ void SambucaAudioProcessorEditor::resized()
         {
             int row = oscCount / 4;
             int col = oscCount % 4;
-            cs->slider->setBounds(oscStartX + (col * (knobSize + 20)), border + (row * rowHeight), knobSize, knobSize + 15);
+            cs->slider->setBounds (oscStartX + (col * (knobSize + 20)), border + (row * rowHeight), knobSize, knobSize + 15);
             oscCount++;
         }
         else if (cs->section == "FILTER")
         {
             int row = filterCount / 4;
             int col = filterCount % 4;
-            cs->slider->setBounds(filterStartX + (col * (knobSize + 20)), 230 + (row * rowHeight), knobSize, knobSize + 15);
+            cs->slider->setBounds (filterStartX + (col * (knobSize + 20)), 230 + (row * rowHeight), knobSize, knobSize + 15);
             filterCount++;
         }
         else if (cs->section == "LFO")
         {
             int row = lfoCount / 3;
             int col = lfoCount % 3;
-            cs->slider->setBounds(filterStartX + (col * (knobSize + 20)), 390 + (row * rowHeight), knobSize, knobSize + 15);
+            cs->slider->setBounds (filterStartX + (col * (knobSize + 20)), 390 + (row * rowHeight), knobSize, knobSize + 15);
             lfoCount++;
         }
         else if (cs->section == "FX")
         {
-            cs->slider->setBounds(680 + (fxCount * (knobSize + 20)), border, knobSize, knobSize + 15);
+            cs->slider->setBounds (680 + (fxCount * (knobSize + 20)), border, knobSize, knobSize + 15);
             fxCount++;
         }
         else if (cs->section == "GLOBAL")
         {
-            cs->slider->setBounds(680 + (globalCount * (knobSize + 20)), 140, knobSize, knobSize + 15);
+            cs->slider->setBounds (680 + (globalCount * (knobSize + 20)), 140, knobSize, knobSize + 15);
             globalCount++;
         }
     }
