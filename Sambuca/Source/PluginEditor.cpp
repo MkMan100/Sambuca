@@ -50,15 +50,9 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     createAndConnectKnob ("wavetableMorph", "GLOBAL");
     createAndConnectKnob ("masterVolume", "GLOBAL");
     createAndConnectKnob ("envTimeScale", "GLOBAL");
-}
 
-SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor()
-{
-    for (auto& cs : connectedSliders)
-    {
-        if (cs->slider != nullptr)
-            cs->slider->setLookAndFeel(nullptr);
-    }
+    // FONDAMENTALE: Forza il calcolo delle posizioni dei knob appena creati
+    resized();
 }
 
 void SambucaAudioProcessorEditor::createAndConnectKnob (const juce::String& parameterID, const juce::String& sectionName)
