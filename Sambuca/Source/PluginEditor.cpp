@@ -4,10 +4,11 @@
 SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
-    // carica sfondo
-auto currentFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
-auto assetsFolder = currentFile.getParentDirectory().getChildFile("Assets");
-backgroundImage = juce::ImageFileFormat::loadFrom(BinaryData::background_png, BinaryData::background_pngSize);
+    // 1. IMPOSTA LE DIMENSIONI DELLA FINESTRA (Fondamentale, altrimenti resta 0x0)
+    setSize (1024, 600);
+
+    // Rimossa la logica di caricamento file corrotta. Usiamo lo sfondo solido nel paint.
+    backgroundImage = juce::Image(); 
 
     // 2. CREAZIONE E MAPPATURA AUTOMATICA DI TUTTI I 34 PARAMETRI
     
@@ -54,7 +55,7 @@ backgroundImage = juce::ImageFileFormat::loadFrom(BinaryData::background_png, Bi
 
 SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor()
 {
-    // Scollega in sicurezza il LookAndFeel per evitare crash di memoria
+    // Scollega in sicurezza il LookAndFeel standard
     for (auto& cs : connectedSliders)
     {
         if (cs.slider != nullptr)
@@ -62,48 +63,49 @@ SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor()
     }
 }
 
-// Funzione helper che crea lo slider, lo collega ad APVTS e gli applica il tuo LookAndFeel
 void SambucaAudioProcessorEditor::createAndConnectKnob (const juce::String& parameterID, const juce::String& sectionName)
 {
     ConnectedSlider cs;
     cs.slider = std::make_unique<juce::Slider>();
     cs.section = sectionName;
 
-    // Imposta lo stile di trascinamento standard per i knob ad alta precisione
     cs.slider->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    cs.slider->setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-    cs.slider->setLookAndFeel(&sambucaLookAndFeel); // Applica la tua estetica (base + glow)
+    
+    // Ripristiniamo la TextBox standard in basso così vedi i valori numerici dei parametri
+    cs.slider->setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
+    
+    // Escludiamo momentaneamente sambucaLookAndFeel per usare la grafica nativa JUCE
+    // cs.slider->setLookAndFeel(&sambucaLookAndFeel); 
 
-    // JUCE mappa tutto da solo qui legando il controllo all'albero dei parametri
     cs.attachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.apvts, parameterID, *cs.slider);
 
     addAndMakeVisible(*cs.slider);
-    connectedSliders.push_back(std::move(cs)); // Conserva nella lista
+    connectedSliders.push_back(std::move(cs)); 
 }
 
 void SambucaAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    if (backgroundImage.isValid())
-    {
-        g.drawImageWithin(backgroundImage, 0, 0, getWidth(), getHeight(), juce::RectanglePlacement::fillDestination);
-    }
-    else
-    {
-        g.fillAll (juce::Colours::darkgrey);
-    }
+    // Sfondo solido scuro di fallback per rendere visibili i controlli standard
+    g.fillAll (juce::Colour (0xFF23272A)); 
+
+    // Disegna etichette di testo per identificare le zone macro del synth
+    g.setColour (juce::Colours::white);
+    g.setFont (16.0f);
+    g.drawText ("OSCILLATORS", 300, 5, 200, 20, juce::Justification::left);
+    g.drawText ("FILTERS", 8, 200, 200, 20, juce::Justification::left);
+    g.drawText ("LFOs", 8, 360, 200, 20, juce::Justification::left);
+    g.drawText ("FX", 680, 5, 200, 20, juce::Justification::left);
 }
 
 void SambucaAudioProcessorEditor::resized()
 {
-    float border = 8.5f;
+    float border = 25.0f; // Alzato leggermente per dare spazio ai testi dei parametri
     
-    // Coordinate per organizzare la scacchiera dei controlli
-    int oscStartX = 300; // Inizia dopo l'area logo (279 + 8.5)
-    int filterStartX = border;
-    int lfoStartX = border;
+    int oscStartX = 300; 
+    int filterStartX = 10;
     
-    int rowHeight = 70;
-    int knobSize = 60;
+    int rowHeight = 85;   // Aumentato per contenere la text box del valore dello slider
+    int knobSize = 65;
 
     int oscCount = 0;
     int filterCount = 0;
@@ -111,47 +113,38 @@ void SambucaAudioProcessorEditor::resized()
     int fxCount = 0;
     int globalCount = 0;
 
-    // Distribuzione automatica di tutti i 34 knob in base alla loro sezione
     for (auto& cs : connectedSliders)
     {
         if (cs.section == "OSC")
         {
-            // Dispone i 3 oscillatori su 3 righe verticali separate, partendo da X = 300
             int row = oscCount / 4;
             int col = oscCount % 4;
-            cs.slider->setBounds(oscStartX + (col * (knobSize + 15)), border + (row * rowHeight), knobSize, knobSize);
+            cs.slider->setBounds(oscStartX + (col * (knobSize + 20)), border + (row * rowHeight), knobSize, knobSize + 15);
             oscCount++;
         }
         else if (cs.section == "FILTER")
         {
-            // Filtri posizionati sotto l'area del logo (Y > 150)
             int row = filterCount / 4;
             int col = filterCount % 4;
-            cs.slider->setBounds(filterStartX + (col * (knobSize + 15)), 220 + (row * rowHeight), knobSize, knobSize);
+            cs.slider->setBounds(filterStartX + (col * (knobSize + 20)), 230 + (row * rowHeight), knobSize, knobSize + 15);
             filterCount++;
         }
         else if (cs.section == "LFO")
         {
-            // LFO disposti in una griglia ordinata accanto ai filtri
             int row = lfoCount / 3;
             int col = lfoCount % 3;
-            cs.slider->setBounds(filterStartX + (col * (knobSize + 15)), 380 + (row * rowHeight), knobSize, knobSize);
+            cs.slider->setBounds(filterStartX + (col * (knobSize + 20)), 390 + (row * rowHeight), knobSize, knobSize + 15);
             lfoCount++;
         }
         else if (cs.section == "FX")
         {
-            // Sezione effetti sulla fascia destra del plugin
-            cs.slider->setBounds(680 + (fxCount * (knobSize + 15)), border, knobSize, knobSize);
+            cs.slider->setBounds(680 + (fxCount * (knobSize + 20)), border, knobSize, knobSize + 15);
             fxCount++;
         }
         else if (cs.section == "GLOBAL")
         {
-            // Controlli master e scala temporale in basso a destra
-            cs.slider->setBounds(680 + (globalCount * (knobSize + 15)), 120, knobSize, knobSize);
+            cs.slider->setBounds(680 + (globalCount * (knobSize + 20)), 140, knobSize, knobSize + 15);
             globalCount++;
         }
     }
-
-    // NOTA: Rimane un intero blocco vuoto gigante al centro (da X: 300 a X: 1024, Y > 220)
-    // pronto per ospitare lo schermo a Breakpoint di Absynth che implementeremo!
 }
