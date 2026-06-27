@@ -123,74 +123,95 @@ public:
     }
 
     void renderNextBlock (juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override
+{
+    if (!isVoiceActive())
+        return;
+
+    // Recuperiamo i puntatori ai parametri APVTS (tramite il processore)
+    // Nota: Assicurati che la tua voce abbia un modo per accedere all'APVTS del processore,
+    // ad esempio passando un puntatore al processore nel costruttore o tramite una funzione.
+    auto& apvts = audioProcessor.apvts; 
+
+    // Leggi i valori aggiornati dall'interfaccia
+    float morphValue = apvts.getRawParameterValue("wavetableMorph")->load(); // Problema 1 & 3 (Morphing)
+    float lfoRate = apvts.getRawParameterValue("lfo1Rate")->load();
+    float lfoAmount = apvts.getRawParameterValue("lfo1Amount")->load();
+
+    // Aggiorna la frequenza dell'LFO di questa voce
+    voiceLFO.setFrequency(lfoRate);
+
+    juce::AudioBuffer<float> synthBlock (outputBuffer.getNumChannels(), numSamples);
+    synthBlock.clear();
+
+    for (int sample = 0; sample < numSamples; ++sample)
     {
-        if (!isVoiceActive())
-            return;
+        // Calcola il campione corrente dell'LFO (Problema 6)
+        float lfoCurrentValue = voiceLFO.processSample(0.0f) * lfoAmount;
 
-        juce::AudioBuffer<float> synthBlock (outputBuffer.getNumChannels(), numSamples);
-        synthBlock.clear();
+        float sampleSum = 0.0f;
 
-        for (int sample = 0; sample < numSamples; ++sample)
+        // Calcolo individuale degli oscillatori
+        float s1 = oscillators[0].currentMode == SambucaOscillator::Mode::StandardWave ? oscillators[0].waveOsc.processSample (0.0f) : 0.0f; // Esegui logica WAV se LoadedSample
+        float s2 = oscillators[1].currentMode == SambucaOscillator::Mode::StandardWave ? oscillators[1].waveOsc.processSample (0.0f) : 0.0f;
+        float s3 = oscillators[2].currentMode == SambucaOscillator::Mode::StandardWave ? oscillators[2].waveOsc.processSample (0.0f) : 0.0f;
+
+        // --- APPLICAZIONE MORPHING (Problema 1 & 3) ---
+        // Il parametro morphValue (0.0 - 1.0) miscela fluidamente tra OSC 1, OSC 2 e OSC 3
+        if (morphValue < 0.5f)
         {
-            float sampleSum = 0.0f;
-
-            for (int i = 0; i < 3; ++i)
-            {
-                if (oscillators[i].currentMode == SambucaOscillator::Mode::StandardWave)
-                {
-                    sampleSum += oscillators[i].waveOsc.processSample (0.0f);
-                }
-                else if (oscillators[i].currentMode == SambucaOscillator::Mode::LoadedSample && oscillators[i].sampleBufferRef != nullptr)
-                {
-                    auto& buffer = *(oscillators[i].sampleBufferRef);
-                    int bufferLength = buffer.getNumSamples();
-                    int numChannels = buffer.getNumChannels();
-                    
-                    if (bufferLength <= 1 || numChannels <= 0)
-                    {
-                        sampleSum += 0.0f;
-                    }
-                    else
-                    {
-                        int idxCurrent = static_cast<int>(oscillators[i].samplePosition);
-                        int idxNext = (idxCurrent + 1) % bufferLength;
-                        float fraction = oscillators[i].samplePosition - idxCurrent;
-
-                        float s0 = buffer.getSample (0, idxCurrent);
-                        float s1 = buffer.getSample (0, idxNext);
-                        float interpolatedSample = s0 + fraction * (s1 - s0);
-
-                        sampleSum += interpolatedSample;
-
-                        oscillators[i].samplePosition += oscillators[i].sampleIncrement;
-                        if (oscillators[i].samplePosition >= bufferLength)
-                        {
-                            if (oscillators[i].isLooping)
-                                oscillators[i].samplePosition = std::fmod(oscillators[i].samplePosition, (double)bufferLength);
-                            else
-                                oscillators[i].sampleIncrement = 0.0;
-                        }
-                    }
-                }
-            }
-
-            float envVolume = adsr.getNextSample();
-            float finalSample = (sampleSum / 3.0f) * envVolume * noteVelocity;
-
-            for (int channel = 0; channel < outputBuffer.getNumChannels(); ++channel)
-            {
-                outputBuffer.addSample (channel, startSample + sample, finalSample);
-            }
+            float t = morphValue * 2.0f; // riscala 0.0 - 0.5 in 0.0 - 1.0
+            sampleSum = (1.0f - t) * s1 + t * s2;
+        }
+        else
+        {
+            float t = (morphValue - 0.5f) * 2.0f; // riscala 0.5 - 1.0 in 0.0 - 1.0
+            sampleSum = (1.0f - t) * s2 + t * s3;
         }
 
-        if (!adsr.isActive())
+        // --- APPLICAZIONE ADSR (Problema 2) ---
+        float envVolume = adsr.getNextSample();
+        
+        // Salva il segnale combinato temporaneamente nel blocco della voce
+        float voiceSample = sampleSum * envVolume * noteVelocity;
+
+        for (int channel = 0; channel < synthBlock.getNumChannels(); ++channel)
         {
-            clearCurrentNote();
+            synthBlock.setSample(channel, sample, voiceSample);
         }
     }
+
+    // --- APPLICAZIONE FILTRI POLIFONICI (Problema 5) ---
+    // Aggiorna i filtri con l'aggiunta della modulazione LFO sul Cutoff prima del processamento
+    float baseCutoff1 = apvts.getRawParameterValue("filter1Cutoff")->load();
+    float modulatedCutoff1 = juce::jlimit(20.0f, 20000.0f, baseCutoff1 + (lfoCurrentValue * 5000.0f)); // LFO modula fino a 5kHz
+    
+    voiceFilter1.setCutoffFrequency(modulatedCutoff1);
+    voiceFilter1.setResonance(apvts.getRawParameterValue("filter1Resonance")->load());
+
+    juce::dsp::AudioBlock<float> block(synthBlock);
+    juce::dsp::ProcessContextReplacing<float> context(block);
+    
+    // Il filtro elabora il blocco audio di questa specifica nota
+    voiceFilter1.process(context);
+
+    // Copia il risultato finale nell'output generale del synth
+    for (int channel = 0; channel < outputBuffer.getNumChannels(); ++channel)
+    {
+        outputBuffer.addFrom(channel, startSample, synthBlock.getReadPointer(channel), numSamples);
+    }
+
+    if (!adsr.isActive())
+    {
+        clearCurrentNote();
+    }
+}
 
 private:
     SambucaOscillator oscillators[3];
     juce::ADSR adsr;
     float noteVelocity = 0.0f;
+  
+    juce::dsp::Oscillator<float> voiceLFO;
+    juce::dsp::LadderFilter<float> voiceFilter1;
+    juce::dsp::LadderFilter<float> voiceFilter2;
 };
