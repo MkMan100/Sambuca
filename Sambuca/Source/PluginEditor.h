@@ -35,6 +35,8 @@ private:
     std::unique_ptr<juce::TextButton> loadButtonOsc2;
     std::unique_ptr<juce::TextButton> loadButtonOsc3;
 
+    std::unique_ptr<juce::FileChooser> fileChooser;
+    
     void createAndConnectKnob (const juce::String& parameterID, const juce::String& sectionName, const juce::String& displayName);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SambucaAudioProcessorEditor)
