@@ -52,6 +52,12 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     createAndConnectKnob ("masterVolume", "GLOBAL", "Master Vol");
     createAndConnectKnob ("envTimeScale", "GLOBAL", "Env Scale");
 
+    // Inviluppo ADSR
+    createAndConnectKnob ("attack", "ADSR", "Attack");
+    createAndConnectKnob ("decay", "ADSR", "Decay");
+    createAndConnectKnob ("sustain", "ADSR", "Sustain");
+    createAndConnectKnob ("release", "ADSR", "Release");
+
     // 3. INIZIALIZZAZIONE PULSANTI LOAD WAV
     loadButtonOsc1 = std::make_unique<juce::TextButton> ("Load OSC 1");
     loadButtonOsc2 = std::make_unique<juce::TextButton> ("Load OSC 2");
@@ -146,7 +152,8 @@ void SambucaAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("FILTERS", 30, 240, 200, 20, juce::Justification::left);
     g.drawText ("LFOs", 700, 350, 200, 20, juce::Justification::left);
     g.drawText ("EFFECTS & MASTER", 700, 25, 300, 20, juce::Justification::left);
-
+    g.drawText ("ENVELOPE (ADSR)", 700, 450, 200, 20, juce::Justification::left);
+    
     // Spazio vuoto in alto a sinistra (Problema 7)
     g.setColour (juce::Colours::dimgrey);
     g.drawRect (30, 30, 260, 150, 1);
@@ -228,6 +235,17 @@ void SambucaAudioProcessorEditor::resized()
             cs->label->setBounds (x, y, knobSize, labelHeight);
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             fxCount++;
+        }
+            // Griglia ADSR (Posizionata in basso a destra)
+        else if (cs->section == "ADSR")
+        {
+            int col = globalCount % 4; // Usa un contatore o creane uno dedicato 'adsrCount'
+            int x = 700 + (col * (knobSize + 15));
+            int y = 480; // Sotto la sezione LFO / FX
+
+            cs->label->setBounds (x, y, knobSize, labelHeight);
+            cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
+            globalCount++; // o adsrCount++
         }
         // Controlli Globali
         else if (cs->section == "GLOBAL")
