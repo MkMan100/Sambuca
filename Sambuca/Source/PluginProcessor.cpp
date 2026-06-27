@@ -192,7 +192,6 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 
     if (fxMix > 0.0f)
     {
-        if (!hasLoggedProcess) writeDebugLog("[processBlock] Elaborazione Effetti FX (Delay/Reverb)");
         delayBuffer.makeCopyOf(buffer); 
         juce::dsp::AudioBlock<float> delayBlock(delayBuffer);
         juce::dsp::ProcessContextReplacing<float> delayContext(delayBlock);
@@ -204,7 +203,19 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         {
             delayModule.setDelay(juce::jlimit(0.0f, 2.0f, delaySecs) * currentSampleRate);
         }
+
+        // --- CORREZIONE FEEDBACK ---
+        auto* feedbackPtr = apvts.getRawParameterValue("delayFeedback");
+        float feedback = (feedbackPtr != nullptr) ? juce::jlimit(0.0f, 0.95f, feedbackPtr->load()) : 0.5f;
+
+        // Mandiamo il segnale ritardato precedente in feedback prima del processamento
+        for (int ch = 0; ch < totalNumOutputChannels; ++ch)
+        {
+            delayModule.pushSample(ch, delayBuffer.getReadPointer(ch)[0] * feedback);
+        }
+
         delayModule.process(delayContext);
+        // ----------------------------
 
         auto* reverbSizePtr = apvts.getRawParameterValue("reverbSize");
         reverbParameters.roomSize = (reverbSizePtr != nullptr) ? juce::jlimit(0.0f, 1.0f, reverbSizePtr->load()) : 0.5f;
