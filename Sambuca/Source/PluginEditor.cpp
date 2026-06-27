@@ -61,7 +61,24 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
         btn.setButtonText ("LOAD WAV " + juce::String(oscNum));
         addAndMakeVisible (btn);
         btn.onClick = [this, oscNum]() {
-            // Qui inseriremo il FileChooser nativo JUCE per caricare la wav nel processore
+   // Crea il FileChooser configurato per i file audio
+            fileChooser = std::make_unique<juce::FileChooser> (
+                "Seleziona un file WAV per l'Oscillatore " + juce::String(oscNum),
+                juce::File::getSpecialLocation (juce::File::userHomeDirectory),
+                "*.wav;*.wave"
+            );
+
+            // Apre la finestra di dialogo in modo asincrono (obbligatorio nei moderni sistemi operativi)
+            fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                [this, oscNum] (const juce::FileChooser& chooser)
+                {
+                    auto file = chooser.getResult();
+                    if (file.existsAsFile())
+                    {
+                        // Passa il file audio e l'indice dell'oscillatore (0, 1 o 2) al processore
+                        audioProcessor.loadAudioFileForOscillator (file, oscNum - 1);
+                    }
+                });
         };
     };
 
