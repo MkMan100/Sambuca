@@ -11,6 +11,7 @@ public:
     SambucaAudioProcessorEditor (SambucaAudioProcessor&);
     ~SambucaAudioProcessorEditor() override;
 
+    void createAndConnectKnob (juce::String parameterID, juce::String labelText, int x, int y);
     void paint (juce::Graphics&) override;
     void resized() override;
 
