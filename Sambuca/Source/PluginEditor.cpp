@@ -96,8 +96,15 @@ SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor()
     }
 } // <-- Questa chiude il Distruttore
 
-void SambucaAudioProcessorEditor::createAndConnectKnob (const juce::String& parameterID, const juce::String& sectionName, const juce::String& displayName)
+void SambucaAudioProcessorEditor::createAndConnectKnob (juce::String parameterID, juce::String labelText, int x, int y)
 {
+    // CONTROLLO DI SICUREZZA: Se il parametro non esiste nell'APVTS, intercettiamo l'errore senza crashare
+    if (processor.apvts.getParameter (parameterID) == nullptr)
+    {
+        juce::File logFile = juce::File::getSpecialLocation(juce::File::userDesktopDirectory).getChildFile("sambuca_debug.txt");
+        logFile.appendText("CRASH EVITATO! L'Editor ha cercato un parametro inesistente: " + parameterID + "\n");
+        return; // Salta il collegamento ed evita il crash fatale!
+    }
     auto cs = std::make_unique<ConnectedSlider>();
     cs->slider = std::make_unique<juce::Slider>();
     cs->label = std::make_unique<juce::Label>();
