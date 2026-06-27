@@ -53,6 +53,7 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     createAndConnectKnob ("envTimeScale", "GLOBAL", "Env Scale");
 
     // 3. INIZIALIZZAZIONE PULSANTI LOAD WAV
+    // INIZIALIZZAZIONE PULSANTI LOAD WAV
     loadButtonOsc1 = std::make_unique<juce::TextButton> ("Load OSC 1");
     loadButtonOsc2 = std::make_unique<juce::TextButton> ("Load OSC 2");
     loadButtonOsc3 = std::make_unique<juce::TextButton> ("Load OSC 3");
@@ -60,23 +61,22 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     auto setupButton = [this](juce::TextButton& btn, int oscNum) {
         btn.setButtonText ("LOAD WAV " + juce::String(oscNum));
         addAndMakeVisible (btn);
+        
         btn.onClick = [this, oscNum]() {
-   // Crea il FileChooser configurato per i file audio
             fileChooser = std::make_unique<juce::FileChooser> (
                 "Seleziona un file WAV per l'Oscillatore " + juce::String(oscNum),
                 juce::File::getSpecialLocation (juce::File::userHomeDirectory),
                 "*.wav;*.wave"
             );
 
-            // Apre la finestra di dialogo in modo asincrono (obbligatorio nei moderni sistemi operativi)
             fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
                 [this, oscNum] (const juce::FileChooser& chooser)
                 {
                     auto file = chooser.getResult();
                     if (file.existsAsFile())
                     {
-                        // Passa il file audio e l'indice dell'oscillatore (0, 1 o 2) al processore
-                        audioProcessor.loadAudioFileForOscillator (file, oscNum - 1);
+                        // Passiamo il file e l'indice corretto (oscNum - 1 trasforma 1,2,3 in 0,1,2)
+                        audioProcessor.loadAudioFile (file, oscNum - 1);
                     }
                 });
         };
@@ -87,7 +87,6 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     setupButton (*loadButtonOsc3, 3);
 
     resized();
-}
 
 SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor()
 {
