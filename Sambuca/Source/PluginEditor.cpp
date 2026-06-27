@@ -48,11 +48,11 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     createAndConnectKnob ("fxMix", "FX", "FX Mix");
 
     // Globali
-    createAndConnectKnob ("wavetableMorph", "GLOBAL_SLIDER", "Wave Morph"); // Diventerà uno slider lineare
+    createAndConnectKnob ("wavetableMorph", "GLOBAL_SLIDER", "Wave Morph"); 
     createAndConnectKnob ("masterVolume", "GLOBAL", "Master Vol");
     createAndConnectKnob ("envTimeScale", "GLOBAL", "Env Scale");
 
-// 3. INIZIALIZZAZIONE PULSANTI LOAD WAV
+    // 3. INIZIALIZZAZIONE PULSANTI LOAD WAV
     loadButtonOsc1 = std::make_unique<juce::TextButton> ("Load OSC 1");
     loadButtonOsc2 = std::make_unique<juce::TextButton> ("Load OSC 2");
     loadButtonOsc3 = std::make_unique<juce::TextButton> ("Load OSC 3");
@@ -78,14 +78,14 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
                     }
                 });
         };
-    }; // <-- Questo punto e virgola chiude la lambda setupButton
+    }; 
 
     setupButton (*loadButtonOsc1, 1);
     setupButton (*loadButtonOsc2, 2);
     setupButton (*loadButtonOsc3, 3);
 
     resized();
-} // <-- Questa chiude DEFINITIVAMENTE il Costruttore SambucaAudioProcessorEditor
+} 
 
 SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor()
 {
@@ -94,17 +94,19 @@ SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor()
         if (cs != nullptr && cs->slider != nullptr)
             cs->slider->setLookAndFeel (nullptr);
     }
-} // <-- Questa chiude il Distruttore
+} 
 
-void SambucaAudioProcessorEditor::createAndConnectKnob (juce::String parameterID, juce::String labelText, int x, int y)
+// Implementazione corretta allineata alla firma dell'header
+void SambucaAudioProcessorEditor::createAndConnectKnob (const juce::String& parameterID, const juce::String& sectionName, const juce::String& displayName)
 {
-    // CONTROLLO DI SICUREZZA: Se il parametro non esiste nell'APVTS, intercettiamo l'errore senza crashare
-    if (processor.apvts.getParameter (parameterID) == nullptr)
+    // CONTROLLO DI SICUREZZA
+    if (audioProcessor.apvts.getParameter (parameterID) == nullptr)
     {
         juce::File logFile = juce::File::getSpecialLocation(juce::File::userDesktopDirectory).getChildFile("sambuca_debug.txt");
-        logFile.appendText("CRASH EVITATO! L'Editor ha cercato un parametro inesistente: " + parameterID + "\n");
-        return; // Salta il collegamento ed evita il crash fatale!
+        logFile.appendText("PARAMETRO MANCANTE: " + parameterID + "\n");
+        return; 
     }
+
     auto cs = std::make_unique<ConnectedSlider>();
     cs->slider = std::make_unique<juce::Slider>();
     cs->label = std::make_unique<juce::Label>();
@@ -113,14 +115,14 @@ void SambucaAudioProcessorEditor::createAndConnectKnob (juce::String parameterID
 
     // Configura lo Slider
     if (sectionName == "GLOBAL_SLIDER") {
-        cs->slider->setSliderStyle (juce::Slider::LinearHorizontal); // Morphing lineare!
+        cs->slider->setSliderStyle (juce::Slider::LinearHorizontal); 
     } else {
         cs->slider->setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
     }
     cs->slider->setTextBoxStyle (juce::Slider::TextBoxBelow, false, 55, 14);
     addAndMakeVisible (*cs->slider);
 
-    // Configura la Label (Scritta sopra il knob)
+    // Configura la Label
     cs->label->setText (displayName, juce::dontSendNotification);
     cs->label->setFont (juce::Font (11.0f, juce::Font::bold));
     cs->label->setJustificationType (juce::Justification::centred);
@@ -140,13 +142,11 @@ void SambucaAudioProcessorEditor::paint (juce::Graphics& g)
     g.setColour (juce::Colours::white);
     g.setFont (16.0f);
     
-    // Testi Macro-aree riposizionati strategicamente fuori dal riquadro del logo
     g.drawText ("OSCILLATORS CONTROLS", 340, 25, 300, 20, juce::Justification::left);
     g.drawText ("FILTERS", 30, 240, 200, 20, juce::Justification::left);
     g.drawText ("LFOs", 30, 420, 200, 20, juce::Justification::left);
     g.drawText ("EFFECTS & MASTER", 680, 25, 300, 20, juce::Justification::left);
 
-    // Disegniamo temporaneamente un rettangolo dove andrà l'oscilloscopio/quadrante custom
     g.setColour (juce::Colours::dimgrey);
     g.drawRect (30, 30, 260, 150, 1);
     g.setFont (12.0f);
@@ -155,7 +155,6 @@ void SambucaAudioProcessorEditor::paint (juce::Graphics& g)
 
 void SambucaAudioProcessorEditor::resized()
 {
-    // Limiti e bordi generali chiesti dall'utente
     const int margin = 30;
     const int knobSize = 55;
     const int labelHeight = 15;
@@ -167,18 +166,17 @@ void SambucaAudioProcessorEditor::resized()
     int fxCount = 0;
     int globalCount = 0;
 
-    // Posizionamento Pulsanti Load WAV sotto lo spazio logo
     int btnW = 80;
     int btnH = 22;
-    loadButtonOsc1->setBounds (30, 195, btnW, btnH);
-    loadButtonOsc2->setBounds (120, 195, btnW, btnH);
-    loadButtonOsc3->setBounds (210, 195, btnW, btnH);
+    
+    if (loadButtonOsc1 != nullptr) loadButtonOsc1->setBounds (30, 195, btnW, btnH);
+    if (loadButtonOsc2 != nullptr) loadButtonOsc2->setBounds (120, 195, btnW, btnH);
+    if (loadButtonOsc3 != nullptr) loadButtonOsc3->setBounds (210, 195, btnW, btnH);
 
     for (const auto& cs : connectedSliders)
     {
         if (cs->slider == nullptr) continue;
 
-        // Griglia OSCILLATORI (Parte centrale dello schermo)
         if (cs->section == "OSC")
         {
             int row = oscCount / 4;
@@ -190,7 +188,6 @@ void SambucaAudioProcessorEditor::resized()
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             oscCount++;
         }
-        // Griglia FILTRI (In basso a sinistra, bilanciata per non uscire dallo schermo)
         else if (cs->section == "FILTER")
         {
             int row = filterCount / 4;
@@ -202,7 +199,6 @@ void SambucaAudioProcessorEditor::resized()
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             filterCount++;
         }
-        // Griglia LFO (In fondo a sinistra, sopra il margine di sicurezza)
         else if (cs->section == "LFO")
         {
             int row = lfoCount / 3;
@@ -214,7 +210,6 @@ void SambucaAudioProcessorEditor::resized()
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             lfoCount++;
         }
-        // Griglia FX (In alto a destra)
         else if (cs->section == "FX")
         {
             int row = fxCount / 2;
@@ -226,7 +221,6 @@ void SambucaAudioProcessorEditor::resized()
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             fxCount++;
         }
-        // Controlli Generali (Sotto la sezione FX)
         else if (cs->section == "GLOBAL")
         {
             int x = 680 + (globalCount * (knobSize + 40));
@@ -236,7 +230,6 @@ void SambucaAudioProcessorEditor::resized()
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             globalCount++;
         }
-        // LO SLIDER DI MORPHING LINEARE! Posizionato lungo e comodo sotto gli oscillatori
         else if (cs->section == "GLOBAL_SLIDER")
         {
             cs->label->setBounds (340, 240, 300, labelHeight);
