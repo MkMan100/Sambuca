@@ -197,13 +197,20 @@ juce::AudioProcessorEditor* SambucaAudioProcessor::createEditor()
     return new SambucaAudioProcessorEditor (*this);
 }
 
-void SambucaAudioProcessor::loadAudioFile (const juce::File& file)
+void SambucaAudioProcessor::loadAudioFile (const juce::File& file, int oscillatorIndex)
 {
+    // Sicurezza: controlla che l'indice sia valido (tra 0 e 2)
+    if (oscillatorIndex < 0 || oscillatorIndex >= 3) return;
+
     auto* reader = formatManager.createReaderFor (file);
     if (reader != nullptr)
     {
-        loadedSampleBuffer.setSize (1, static_cast<int>(reader->lengthInSamples));
-        reader->read (&loadedSampleBuffer, 0, static_cast<int>(reader->lengthInSamples), 0, true, false);
+        // Usiamo l'indice per ridimensionare il buffer dell'oscillatore corretto
+        loadedSampleBuffers[oscillatorIndex].setSize (1, static_cast<int>(reader->lengthInSamples));
+        
+        // Leggiamo i dati dentro il buffer specifico
+        reader->read (&loadedSampleBuffers[oscillatorIndex], 0, static_cast<int>(reader->lengthInSamples), 0, true, false);
+        
         delete reader;
     }
 }
