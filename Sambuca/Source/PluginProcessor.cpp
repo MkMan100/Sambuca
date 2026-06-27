@@ -38,10 +38,10 @@ SambucaAudioProcessor::SambucaAudioProcessor()
     }
 
     // 3. Creazione delle voci del sintetizzatore passando *this (Risolve l'errore C2065/C2530)
-    mySynth.clearVoices();
+   mySynth.clearVoices();
     for (int i = 0; i < numVoices; ++i)
     {
-        mySynth.addVoice (new SynthVoice (*this)); 
+        mySynth.addVoice (new SynthVoice (apvts)); // <--- Modificato qui! Passa apvts
     }
 
     mySynth.clearSounds();
