@@ -44,10 +44,9 @@ struct SambucaOscillator
         }
         else if (currentMode == Mode::LoadedSample && sampleBufferRef != nullptr)
         {
-            // Pitch shifting: rapportiamo la frequenza desiderata con una frequenza base stimata (es. C3 = 261.63 Hz)
             float baseFrequency = 261.63f; 
             double pitchRatio = frequency / baseFrequency;
-            sampleIncrement = pitchRatio * (44100.0 / hostSampleRate); // adatta il sample rate
+            sampleIncrement = pitchRatio * (44100.0 / hostSampleRate);
         }
     }
 };
@@ -65,10 +64,9 @@ class SynthVoice : public juce::SynthesiserVoice
 public:
     SynthVoice()
     {
-        // Impostiamo l'onda iniziale standard (es. Dente di sega) per i 3 oscillatori
         for (int i = 0; i < 3; ++i)
         {
-            oscillators[i].waveOsc.initialise ([] (float x) { return std::sin (x); }); // Partiamo con una sinusoide pura
+            oscillators[i].waveOsc.initialise ([] (float x) { return std::sin (x); });
         }
     }
 
@@ -85,10 +83,9 @@ public:
         for (int i = 0; i < 3; ++i)
         {
             oscillators[i].setFrequency (frequency, getSampleRate());
-            oscillators[i].samplePosition = 0.0; // Resetta la lettura del sample dall'inizio
+            oscillators[i].samplePosition = 0.0;
         }
         
-        // Attiva l'inviluppo quando premiamo la nota
         adsr.noteOn();
     }
 
@@ -117,7 +114,6 @@ public:
 
         adsr.setSampleRate (sampleRate);
         
-        // Impostazioni ADSR temporanee di base prima di fare quelle Multi-Breakpoint
         juce::ADSR::Parameters adsrParams;
         adsrParams.attack  = 0.1f;
         adsrParams.decay   = 0.2f;
@@ -131,7 +127,6 @@ public:
         if (!isVoiceActive())
             return;
 
-        // Creiamo un buffer temporaneo per sommare i 3 oscillatori prima dell'inviluppo
         juce::AudioBuffer<float> synthBlock (outputBuffer.getNumChannels(), numSamples);
         synthBlock.clear();
 
@@ -143,7 +138,6 @@ public:
             {
                 if (oscillators[i].currentMode == SambucaOscillator::Mode::StandardWave)
                 {
-                    // Calcolo matematico classico
                     sampleSum += oscillators[i].waveOsc.processSample (0.0f);
                 }
                 else if (oscillators[i].currentMode == SambucaOscillator::Mode::LoadedSample && oscillators[i].sampleBufferRef != nullptr)
@@ -152,7 +146,6 @@ public:
                     int bufferLength = buffer.getNumSamples();
                     int numChannels = buffer.getNumChannels();
                     
-                    // PARACADUTE: Se il buffer è vuoto o non ha canali allocati, salta per evitare il crash!
                     if (bufferLength <= 1 || numChannels <= 0)
                     {
                         sampleSum += 0.0f;
@@ -163,14 +156,12 @@ public:
                         int idxNext = (idxCurrent + 1) % bufferLength;
                         float fraction = oscillators[i].samplePosition - idxCurrent;
 
-                        // Leggi in sicurezza controllando che l'indice sia minore della lunghezza
-                        float s0 = (idxCurrent < bufferLength) ? buffer.getSample (0, idxCurrent) : 0.0f;
-                        float s1 = (idxNext < bufferLength) ? buffer.getSample (0, idxNext) : 0.0f;
+                        float s0 = buffer.getSample (0, idxCurrent);
+                        float s1 = buffer.getSample (0, idxNext);
                         float interpolatedSample = s0 + fraction * (s1 - s0);
 
                         sampleSum += interpolatedSample;
 
-                        // Avanza l'indice di lettura
                         oscillators[i].samplePosition += oscillators[i].sampleIncrement;
                         if (oscillators[i].samplePosition >= bufferLength)
                         {
@@ -181,18 +172,17 @@ public:
                         }
                     }
                 }
-            // Applichiamo l'inviluppo ADSR generale e la velocity della nota premuta
+            }
+
             float envVolume = adsr.getNextSample();
             float finalSample = (sampleSum / 3.0f) * envVolume * noteVelocity;
 
-            // Scriviamo il risultato su tutti i canali d'uscita (Stereo)
             for (int channel = 0; channel < outputBuffer.getNumChannels(); ++channel)
             {
                 outputBuffer.addSample (channel, startSample + sample, finalSample);
             }
         }
 
-        // Se l'inviluppo si è spento del tutto, spegni la voce del synth liberando CPU
         if (!adsr.isActive())
         {
             clearCurrentNote();
@@ -200,7 +190,7 @@ public:
     }
 
 private:
-    SambucaOscillator oscillators[3]; // I nostri 3 moduli pronti ad accogliere onde o file audio
+    SambucaOscillator oscillators[3];
     juce::ADSR adsr;
     float noteVelocity = 0.0f;
 };
