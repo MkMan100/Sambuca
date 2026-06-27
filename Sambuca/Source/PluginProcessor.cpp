@@ -21,7 +21,7 @@ SambucaAudioProcessor::SambucaAudioProcessor()
 #endif
         apvts(*this, nullptr, "Parameters", createParameterLayout())
 {
-    // Cancella il vecchio file di log a ogni nuovo avvio pulito
+    // 1. Reset del file di log
     juce::File logFile = juce::File::getSpecialLocation(juce::File::userDesktopDirectory).getChildFile("sambuca_debug.txt");
     logFile.deleteFile();
 
@@ -30,6 +30,14 @@ SambucaAudioProcessor::SambucaAudioProcessor()
 
     formatManager.registerBasicFormats();
 
+    // 2. Inizializzazione di sicurezza dei 3 buffer (Stereo, 100 campioni di silenzio)
+    for (int i = 0; i < 3; ++i)
+    {
+        loadedSampleBuffers[i].setSize (2, 100);
+        loadedSampleBuffers[i].clear();
+    }
+
+    // 3. Creazione delle voci del sintetizzatore
     mySynth.clearVoices();
     for (int i = 0; i < numVoices; ++i)
     {
@@ -40,13 +48,6 @@ SambucaAudioProcessor::SambucaAudioProcessor()
     mySynth.addSound (new SynthSound());
 
     delayModule.setMaximumDelayInSamples(384000);
-
-    // Inizializzazione di sicurezza dei 3 buffer
-    for (int i = 0; i < 3; ++i)
-    {
-        loadedSampleBuffers[i].setSize (1, 1);
-        loadedSampleBuffers[i].clear();
-    }
 
     writeDebugLog("[Costruttore] Fine inizializzazione riuscita");
 }
