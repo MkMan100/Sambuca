@@ -144,18 +144,22 @@ void SambucaAudioProcessorEditor::paint (juce::Graphics& g)
     
     g.drawText ("OSCILLATORS CONTROLS", 340, 25, 300, 20, juce::Justification::left);
     g.drawText ("FILTERS", 30, 240, 200, 20, juce::Justification::left);
-    g.drawText ("LFOs", 30, 420, 200, 20, juce::Justification::left);
-    g.drawText ("EFFECTS & MASTER", 680, 25, 300, 20, juce::Justification::left);
+    g.drawText ("LFOs", 700, 350, 200, 20, juce::Justification::left);
+    g.drawText ("EFFECTS & MASTER", 700, 25, 300, 20, juce::Justification::left);
 
+    // Spazio vuoto in alto a sinistra (Problema 7)
     g.setColour (juce::Colours::dimgrey);
     g.drawRect (30, 30, 260, 150, 1);
+    
+    // Spazio Visualizzazione spostato in basso al centro (Problema 7)
+    g.drawRect (340, 380, 310, 180, 1);
     g.setFont (12.0f);
-    g.drawText ("[ SPAZIO LOGO / VISUALIZZATORE ]", 30, 90, 260, 20, juce::Justification::centred);
+    g.drawText ("[ SPAZIO VISUALIZZAZIONE / ONDE ]", 340, 460, 310, 20, juce::Justification::centred);
 }
 
 void SambucaAudioProcessorEditor::resized()
 {
-    const int margin = 30;
+    const int margin = 25;
     const int knobSize = 55;
     const int labelHeight = 15;
     const int totalControlHeight = knobSize + labelHeight;
@@ -166,9 +170,9 @@ void SambucaAudioProcessorEditor::resized()
     int fxCount = 0;
     int globalCount = 0;
 
+    // Pulsanti Load WAV sotto lo spazio logo (Invariati)
     int btnW = 80;
     int btnH = 22;
-    
     if (loadButtonOsc1 != nullptr) loadButtonOsc1->setBounds (30, 195, btnW, btnH);
     if (loadButtonOsc2 != nullptr) loadButtonOsc2->setBounds (120, 195, btnW, btnH);
     if (loadButtonOsc3 != nullptr) loadButtonOsc3->setBounds (210, 195, btnW, btnH);
@@ -177,6 +181,7 @@ void SambucaAudioProcessorEditor::resized()
     {
         if (cs->slider == nullptr) continue;
 
+        // Sezione OSCILLATORI (Centro Alto)
         if (cs->section == "OSC")
         {
             int row = oscCount / 4;
@@ -188,52 +193,57 @@ void SambucaAudioProcessorEditor::resized()
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             oscCount++;
         }
+        // Sezione FILTRI (In basso a sinistra)
         else if (cs->section == "FILTER")
         {
-            int row = filterCount / 4;
-            int col = filterCount % 4;
-            int x = margin + (col * (knobSize + 22));
+            int row = filterCount / 2;
+            int col = filterCount % 2;
+            int x = margin + (col * (knobSize + 25));
             int y = 270 + (row * (totalControlHeight + 15));
 
             cs->label->setBounds (x, y, knobSize, labelHeight);
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             filterCount++;
         }
+        // Sezione LFO (Spostata nella COLONNA DESTRA libera - Problema 8 risolto)
         else if (cs->section == "LFO")
         {
             int row = lfoCount / 3;
             int col = lfoCount % 3;
-            int x = margin + (col * (knobSize + 22));
-            int y = 450 + (row * (totalControlHeight + 10));
+            int x = 700 + (col * (knobSize + 15)); // Spostati a destra lontano dai bordi critici
+            int y = 380 + (row * (totalControlHeight + 15));
 
             cs->label->setBounds (x, y, knobSize, labelHeight);
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             lfoCount++;
         }
+        // Sezione FX (In alto a destra)
         else if (cs->section == "FX")
         {
             int row = fxCount / 2;
             int col = fxCount % 2;
-            int x = 680 + (col * (knobSize + 40));
-            int y = 55 + (row * (totalControlHeight + 20));
+            int x = 700 + (col * (knobSize + 25));
+            int y = 55 + (row * (totalControlHeight + 15));
 
             cs->label->setBounds (x, y, knobSize, labelHeight);
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             fxCount++;
         }
+        // Controlli Globali
         else if (cs->section == "GLOBAL")
         {
-            int x = 680 + (globalCount * (knobSize + 40));
+            int x = 700 + (globalCount * (knobSize + 25));
             int y = 240;
 
             cs->label->setBounds (x, y, knobSize, labelHeight);
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             globalCount++;
         }
+        // SLIDER DI MORPHING (Abbassato per evitare accavallamenti - Problema 1 risolto)
         else if (cs->section == "GLOBAL_SLIDER")
         {
-            cs->label->setBounds (340, 240, 300, labelHeight);
-            cs->slider->setBounds (340, 240 + labelHeight, 295, 25);
+            cs->label->setBounds (340, 195, 300, labelHeight);
+            cs->slider->setBounds (340, 195 + labelHeight, 295, 25);
         }
     }
 }
