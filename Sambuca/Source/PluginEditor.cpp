@@ -52,8 +52,7 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     createAndConnectKnob ("masterVolume", "GLOBAL", "Master Vol");
     createAndConnectKnob ("envTimeScale", "GLOBAL", "Env Scale");
 
-    // 3. INIZIALIZZAZIONE PULSANTI LOAD WAV
-    // INIZIALIZZAZIONE PULSANTI LOAD WAV
+// 3. INIZIALIZZAZIONE PULSANTI LOAD WAV
     loadButtonOsc1 = std::make_unique<juce::TextButton> ("Load OSC 1");
     loadButtonOsc2 = std::make_unique<juce::TextButton> ("Load OSC 2");
     loadButtonOsc3 = std::make_unique<juce::TextButton> ("Load OSC 3");
@@ -75,18 +74,18 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
                     auto file = chooser.getResult();
                     if (file.existsAsFile())
                     {
-                        // Passiamo il file e l'indice corretto (oscNum - 1 trasforma 1,2,3 in 0,1,2)
                         audioProcessor.loadAudioFile (file, oscNum - 1);
                     }
                 });
         };
-    };
+    }; // <-- Questo punto e virgola chiude la lambda setupButton
 
     setupButton (*loadButtonOsc1, 1);
     setupButton (*loadButtonOsc2, 2);
     setupButton (*loadButtonOsc3, 3);
 
     resized();
+} // <-- Questa chiude DEFINITIVAMENTE il Costruttore SambucaAudioProcessorEditor
 
 SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor()
 {
@@ -95,7 +94,7 @@ SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor()
         if (cs != nullptr && cs->slider != nullptr)
             cs->slider->setLookAndFeel (nullptr);
     }
-}
+} // <-- Questa chiude il Distruttore
 
 void SambucaAudioProcessorEditor::createAndConnectKnob (const juce::String& parameterID, const juce::String& sectionName, const juce::String& displayName)
 {
