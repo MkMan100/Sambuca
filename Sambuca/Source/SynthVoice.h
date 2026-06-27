@@ -148,33 +148,39 @@ public:
                 }
                 else if (oscillators[i].currentMode == SambucaOscillator::Mode::LoadedSample && oscillators[i].sampleBufferRef != nullptr)
                 {
-                    // Lettura e interpolazione del file .wav caricato in RAM
                     auto& buffer = *(oscillators[i].sampleBufferRef);
                     int bufferLength = buffer.getNumSamples();
+                    int numChannels = buffer.getNumChannels();
                     
-                    int idxCurrent = static_cast<int>(oscillators[i].samplePosition);
-                    int idxNext = (idxCurrent + 1) % bufferLength;
-                    float fraction = oscillators[i].samplePosition - idxCurrent;
-
-                    // Interpolazione lineare per evitare distorsioni e "click"
-                    float s0 = buffer.getSample (0, idxCurrent);
-                    float s1 = buffer.getSample (0, idxNext);
-                    float interpolatedSample = s0 + fraction * (s1 - s0);
-
-                    sampleSum += interpolatedSample;
-
-                    // Avanza l'indice di lettura
-                    oscillators[i].samplePosition += oscillators[i].sampleIncrement;
-                    if (oscillators[i].samplePosition >= bufferLength)
+                    // PARACADUTE: Se il buffer è vuoto o non ha canali allocati, salta per evitare il crash!
+                    if (bufferLength <= 1 || numChannels <= 0)
                     {
-                        if (oscillators[i].isLooping)
-                            oscillators[i].samplePosition = std::fmod(oscillators[i].samplePosition, (double)bufferLength);
-                        else
-                            oscillators[i].sampleIncrement = 0.0; // si ferma a fine file
+                        sampleSum += 0.0f;
+                    }
+                    else
+                    {
+                        int idxCurrent = static_cast<int>(oscillators[i].samplePosition);
+                        int idxNext = (idxCurrent + 1) % bufferLength;
+                        float fraction = oscillators[i].samplePosition - idxCurrent;
+
+                        // Leggi in sicurezza controllando che l'indice sia minore della lunghezza
+                        float s0 = (idxCurrent < bufferLength) ? buffer.getSample (0, idxCurrent) : 0.0f;
+                        float s1 = (idxNext < bufferLength) ? buffer.getSample (0, idxNext) : 0.0f;
+                        float interpolatedSample = s0 + fraction * (s1 - s0);
+
+                        sampleSum += interpolatedSample;
+
+                        // Avanza l'indice di lettura
+                        oscillators[i].samplePosition += oscillators[i].sampleIncrement;
+                        if (oscillators[i].samplePosition >= bufferLength)
+                        {
+                            if (oscillators[i].isLooping)
+                                oscillators[i].samplePosition = std::fmod(oscillators[i].samplePosition, (double)bufferLength);
+                            else
+                                oscillators[i].sampleIncrement = 0.0;
+                        }
                     }
                 }
-            }
-
             // Applichiamo l'inviluppo ADSR generale e la velocity della nota premuta
             float envVolume = adsr.getNextSample();
             float finalSample = (sampleSum / 3.0f) * envVolume * noteVelocity;
