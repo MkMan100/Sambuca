@@ -11,7 +11,6 @@ public:
     SambucaAudioProcessorEditor (SambucaAudioProcessor&);
     ~SambucaAudioProcessorEditor() override;
 
-    void createAndConnectKnob (juce::String parameterID, juce::String labelText, int x, int y);
     void paint (juce::Graphics&) override;
     void resized() override;
 
@@ -23,9 +22,9 @@ private:
     {
         std::unique_ptr<juce::Slider> slider;
         std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
-        std::unique_ptr<juce::Label> label; // <-- AGGIUNTO PER I NOMI
+        std::unique_ptr<juce::Label> label; 
         juce::String section; 
-        juce::String cleanName;             // <-- AGGIUNTO PER IL TESTO PULITO
+        juce::String cleanName;             
     };
 
     std::vector<std::unique_ptr<ConnectedSlider>> connectedSliders;
@@ -38,6 +37,7 @@ private:
 
     std::unique_ptr<juce::FileChooser> fileChooser;
     
+    // Unica dichiarazione corretta e centralizzata per creare i knob automatizzati
     void createAndConnectKnob (const juce::String& parameterID, const juce::String& sectionName, const juce::String& displayName);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SambucaAudioProcessorEditor)
