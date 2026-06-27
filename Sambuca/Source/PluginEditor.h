@@ -18,20 +18,24 @@ private:
     SambucaAudioProcessor& audioProcessor;
     SambucaLookAndFeel sambucaLookAndFeel;
 
-    // Struttura di supporto per raggruppare uno Slider e il suo Attachment
     struct ConnectedSlider
     {
         std::unique_ptr<juce::Slider> slider;
         std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
-        juce::String section; // Identifica a quale macro-area appartiene il controllo
+        std::unique_ptr<juce::Label> label; // <-- AGGIUNTO PER I NOMI
+        juce::String section; 
+        juce::String cleanName;             // <-- AGGIUNTO PER IL TESTO PULITO
     };
 
-    // Modificato in un vettore di unique_ptr per evitare riallocazioni di memoria distruttive
     std::vector<std::unique_ptr<ConnectedSlider>> connectedSliders;
     juce::Image backgroundImage;
 
-    // Helper per creare e collegare al volo un knob generico
-    void createAndConnectKnob (const juce::String& parameterID, const juce::String& sectionName);
+    // Pulsanti per il caricamento dei file WAV per i 3 oscillatori
+    std::unique_ptr<juce::TextButton> loadButtonOsc1;
+    std::unique_ptr<juce::TextButton> loadButtonOsc2;
+    std::unique_ptr<juce::TextButton> loadButtonOsc3;
+
+    void createAndConnectKnob (const juce::String& parameterID, const juce::String& sectionName, const juce::String& displayName);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SambucaAudioProcessorEditor)
 };
