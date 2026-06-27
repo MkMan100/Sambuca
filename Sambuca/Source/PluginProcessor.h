@@ -33,7 +33,7 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     // Metodo pubblico per permettere all'Editor (GUI) di caricare un file audio
-    void loadAudioFile (const juce::File& file);
+    void loadAudioFile (const juce::File& file, int oscillatorIndex);
 
     // Funzione helper obbligatoria per inizializzare l'albero dei parametri (APVTS)
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
@@ -46,7 +46,7 @@ private:
     const int numVoices = 8; 
 
     juce::AudioFormatManager formatManager;
-    juce::AudioBuffer<float> loadedSampleBuffer;
+    juce::AudioBuffer<float> loadedSampleBuffers[3];
 
     // --- NUOVI COMPONENTI DSP (Stile Absynth) ---
     
