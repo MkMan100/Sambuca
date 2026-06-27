@@ -11,7 +11,9 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
-#include "PluginProcessor.h" // Inclusione necessaria per mappare l'APVTS
+
+// 1. FORWARD DECLARATION (Dice al compilatore che la classe esiste altrove senza includere il file)
+class SambucaAudioProcessor;
 
 // Struttura interna per gestire l'oscillatore ibrido
 struct SambucaOscillator 
@@ -198,7 +200,7 @@ public:
     }
 
 private:
-    SambucaAudioProcessor& processor; // Reference al processore
+    class SambucaAudioProcessor& processor; // Aggiunto 'class' se necessario, o basta SambucaAudioProcessor& processor;
     SambucaOscillator oscillators[3];
     juce::ADSR adsr;
     float noteVelocity = 0.0f;
