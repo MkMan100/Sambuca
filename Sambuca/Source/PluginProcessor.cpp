@@ -26,8 +26,14 @@ SambucaAudioProcessor::SambucaAudioProcessor()
     mySynth.addSound (new SynthSound());
 
     delayModule.setMaximumDelayInSamples(384000);
-}
 
+    // FIX ANTICRASH: Inizializza i buffer a zero per evitare puntatori nulli all'avvio
+    for (int i = 0; i < 3; ++i)
+    {
+        loadedSampleBuffers[i].setSize (1, 1);
+        loadedSampleBuffers[i].clear();
+    }
+}
 SambucaAudioProcessor::~SambucaAudioProcessor() {}
 
 juce::AudioProcessorValueTreeState::ParameterLayout SambucaAudioProcessor::createParameterLayout()
