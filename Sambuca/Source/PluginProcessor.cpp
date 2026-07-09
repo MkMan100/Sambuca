@@ -21,35 +21,26 @@ SambucaAudioProcessor::SambucaAudioProcessor()
 #endif
         apvts(*this, nullptr, "Parameters", createParameterLayout())
 {
-    // 1. Reset del file di log
-    juce::File logFile = juce::File::getSpecialLocation(juce::File::userDesktopDirectory).getChildFile("sambuca_debug.txt");
-    logFile.deleteFile();
-
-    writeDebugLog("--- LOG AVVIO SAMBUCA ---");
-    writeDebugLog("[Costruttore] Inizio inizializzazione");
-
     formatManager.registerBasicFormats();
 
-    // 2. Inizializzazione di sicurezza dei 3 buffer (Stereo, 100 campioni di silenzio)
+    // Inizializzazione di sicurezza dei 3 buffer
     for (int i = 0; i < 3; ++i)
     {
         loadedSampleBuffers[i].setSize (2, 100);
         loadedSampleBuffers[i].clear();
     }
 
-    // 3. Creazione delle voci del sintetizzatore passando *this (Risolve l'errore C2065/C2530)
-   mySynth.clearVoices();
+    // Inizializzazione standard senza passare l'apvts se la voce non lo richiede nel costruttore base
+    mySynth.clearVoices();
     for (int i = 0; i < numVoices; ++i)
     {
-        mySynth.addVoice (new SynthVoice (apvts)); // <--- Modificato qui! Passa apvts
+        mySynth.addVoice (new SynthVoice (apvts)); 
     }
 
     mySynth.clearSounds();
     mySynth.addSound (new SynthSound());
 
     delayModule.setMaximumDelayInSamples(384000);
-
-    writeDebugLog("[Costruttore] Fine inizializzazione riuscita");
 }
 
 SambucaAudioProcessor::~SambucaAudioProcessor() {}
