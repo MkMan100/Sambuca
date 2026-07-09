@@ -88,7 +88,7 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
 
     setupButton (*loadButtonOsc1, 1);
     setupButton (*loadButtonOsc2, 2);
-    setupButton (*setupButton (*loadButtonOsc3, 3);
+    setupButton (*loadButtonOsc3, 3);
 
     resized();
 } 
