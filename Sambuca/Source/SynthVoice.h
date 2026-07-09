@@ -193,10 +193,10 @@ public:
 
         switch (filterType)
         {
-            case 0: voiceFilter1.setMode(juce::dsp::LadderFilterMode::LP12); break;
-            case 1: voiceFilter1.setMode(juce::dsp::LadderFilterMode::HP12); break;
-            case 2: voiceFilter1.setMode(juce::dsp::LadderFilterMode::BP12); break;
-            case 3: voiceFilter1.setMode(juce::dsp::LadderFilterMode::BP12); break; 
+            case 0: voiceFilter1.setMode(juce::dsp::LadderFilterMode::LP); break;
+            case 1: voiceFilter1.setMode(juce::dsp::LadderFilterMode::HP); break;
+            case 2: voiceFilter1.setMode(juce::dsp::LadderFilterMode::BP); break;
+            case 3: voiceFilter1.setMode(juce::dsp::LadderFilterMode::BP); break; 
         }
         
         float modulatedCutoff1 = juce::jlimit (20.0f, 20000.0f, baseCutoff1 + (lastLfoValue * 5000.0f));
