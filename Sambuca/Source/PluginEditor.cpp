@@ -116,18 +116,18 @@ void SambucaAudioProcessorEditor::paint (juce::Graphics& g)
 
 void SambucaAudioProcessorEditor::resized()
 {
-    // Creiamo dei contenitori logici temporanei per raggruppare i componenti
+    // Divisione delle macro-aree verticali (Finestra alta 700px)
     juce::Rectangle<int> areaOsc = getLocalBounds().removeFromTop(220).reduced(10);
     juce::Rectangle<int> areaMiddle = getLocalBounds().removeFromTop(220).reduced(10);
     juce::Rectangle<int> areaBottom = getLocalBounds().reduced(10);
 
-    // --- POSIZIONAMENTO PULSANTI LOAD (Ora è sicuro perché non sono nullptr) ---
+    // --- POSIZIONAMENTO PULSANTI LOAD ---
     int btnW = 90; int btnH = 24;
     if (loadButtonOsc1 != nullptr) loadButtonOsc1->setBounds (areaOsc.getX(), areaOsc.getY(), btnW, btnH);
     if (loadButtonOsc2 != nullptr) loadButtonOsc2->setBounds (areaOsc.getX() + 100, areaOsc.getY(), btnW, btnH);
     if (loadButtonOsc3 != nullptr) loadButtonOsc3->setBounds (areaOsc.getX() + 200, areaOsc.getY(), btnW, btnH);
 
-    // --- MANOPOLINI ---
+    // Indici per il calcolo delle sotto-griglie
     int oscIdx = 0, filterIdx = 0, lfoIdx = 0, fxIdx = 0, adsrIdx = 0;
 
     for (const auto& cs : connectedSliders)
@@ -138,47 +138,56 @@ void SambucaAudioProcessorEditor::resized()
 
         if (cs->section == "OSC")
         {
-            int col = oscIdx % 12;
-            targetBounds = juce::Rectangle<int> (areaOsc.getX() + 300 + (col * 70), areaOsc.getY(), 65, 85);
+            // Grid 4 colonne x 3 righe (12 parametri totali per 3 OSC)
+            int col = oscIdx % 4;
+            int row = oscIdx / 4;
+            targetBounds = juce::Rectangle<int> (areaOsc.getX() + 350 + (col * 80), areaOsc.getY() + (row * 65), 70, 60);
             oscIdx++;
         }
         else if (cs->section == "FILTER")
         {
-            int col = filterIdx % 8;
-            targetBounds = juce::Rectangle<int> (areaMiddle.getX() + (col * 75), areaMiddle.getY() + 10, 70, 85);
+            // Grid 4 colonne x 2 righe (8 parametri totali per 2 Filtri)
+            int col = filterIdx % 4;
+            int row = filterIdx / 4;
+            targetBounds = juce::Rectangle<int> (areaMiddle.getX() + (col * 80), areaMiddle.getY() + (row * 85), 75, 80);
             filterIdx++;
         }
         else if (cs->section == "LFO")
         {
-            int col = lfoIdx % 9;
-            targetBounds = juce::Rectangle<int> (areaMiddle.getX() + 600 + (col * 65), areaMiddle.getY() + 10, 60, 80);
+            // Grid 3 colonne x 3 righe (9 parametri totali per 3 LFO)
+            int col = lfoIdx % 3;
+            int row = lfoIdx / 3;
+            targetBounds = juce::Rectangle<int> (areaMiddle.getX() + 500 + (col * 75), areaMiddle.getY() + (row * 65), 70, 60);
             lfoIdx++;
         }
         else if (cs->section == "FX")
         {
-            int col = fxIdx % 4;
-            targetBounds = juce::Rectangle<int> (areaBottom.getX() + (col * 75), areaBottom.getY() + 10, 70, 85);
+            // Fila singola orizzontale in basso a sinistra (4 controlli)
+            targetBounds = juce::Rectangle<int> (areaBottom.getX() + (fxIdx * 80), areaBottom.getY() + 10, 75, 80);
             fxIdx++;
         }
         else if (cs->section == "ADSR")
         {
-            int col = adsrIdx % 4;
-            targetBounds = juce::Rectangle<int> (areaBottom.getX() + 400 + (col * 75), areaBottom.getY() + 10, 70, 85);
+            // Fila singola orizzontale in basso al centro (4 controlli)
+            targetBounds = juce::Rectangle<int> (areaBottom.getX() + 400 + (adsrIdx * 80), areaBottom.getY() + 10, 75, 80);
             adsrIdx++;
         }
         else if (cs->section == "GLOBAL")
         {
-            targetBounds = juce::Rectangle<int> (areaBottom.getX() + 800, areaBottom.getY() + 10, 70, 85);
+            // Controlli finali in basso a destra
+            targetBounds = juce::Rectangle<int> (areaBottom.getX() + 800 + (adsrIdx * 80), areaBottom.getY() + 10, 75, 80);
         }
         else if (cs->section == "GLOBAL_SLIDER") 
         {
-            targetBounds = juce::Rectangle<int> (areaOsc.getX(), areaOsc.getY() + 140, 400, 30);
+            // Slider orizzontale del morph posizionato sotto i pulsanti Load
+            targetBounds = juce::Rectangle<int> (areaOsc.getX(), areaOsc.getY() + 60, 300, 40);
         }
 
+        // Applica le coordinate calcolate al Slider e alla Label corrispondente
         if (!targetBounds.isEmpty())
         {
-            cs->slider->setBounds (targetBounds.getX(), targetBounds.getY() + 15, targetBounds.getWidth(), targetBounds.getHeight() - 15);
-            cs->label->setBounds (targetBounds.getX(), targetBounds.getY(), targetBounds.getWidth(), 15);
+            cs->label->setBounds (targetBounds.getX(), targetBounds.getY(), targetBounds.getWidth(), 18);
+            cs->slider->setBounds (targetBounds.getX(), targetBounds.getY() + 18, targetBounds.getWidth(), targetBounds.getHeight() - 18);
         }
     }
 }
