@@ -31,7 +31,7 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
         createAndConnectKnob (prefix + "Drive", "FILTER", fltName + "Drive");
     }
 
-    // LFOs (LFO 1, 2, 3) Confinati nella nuova colonna
+    // LFOs (LFO 1, 2, 3)
     for (int i = 1; i <= 3; ++i)
     {
         juce::String prefix = "lfo" + juce::String(i);
@@ -71,7 +71,7 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
             fileChooser = std::make_unique<juce::FileChooser> (
                 "Seleziona un file WAV per l'Oscillatore " + juce::String(oscNum),
                 juce::File::getSpecialLocation (juce::File::userHomeDirectory),
-                *.wav;*.wave
+                "*.wav;*.wave"
             );
 
             fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
@@ -144,25 +144,22 @@ void SambucaAudioProcessorEditor::paint (juce::Graphics& g)
     g.setColour (juce::Colours::white);
     g.setFont (16.0f);
     
-    // Titoli riallineati alle macro aree stabili
     g.drawText ("OSCILLATORS CONTROLS", 340, 25, 300, 20, juce::Justification::left);
     g.drawText ("FILTERS", 30, 240, 200, 20, juce::Justification::left);
     g.drawText ("LFO COLUMN", 849, 25, 150, 20, juce::Justification::centred);
-    g.drawText ("EFFECTS & MASTER (SPOSTATI -100px)", 700, 125, 300, 20, juce::Justification::left);
+    g.drawText ("EFFECTS & MASTER", 700, 125, 300, 20, juce::Justification::left);
     g.drawText ("PAD X/Y", 656, 355, 343, 20, juce::Justification::left);
     g.drawText ("ENVELOPE (ADSR)", 656, 420, 342, 20, juce::Justification::left);
     
     g.setColour (juce::Colours::dimgrey);
-    g.drawRect (30, 30, 260, 150, 1); // Logo/Sample Box
+    g.drawRect (30, 30, 260, 150, 1);
     
-    // Spazio Visualizzazione Onde / Display Centrale
     g.drawRect (340, 380, 290, 180, 1);
     g.setFont (12.0f);
     g.drawText ("[ SPAZIO VISUALIZZAZIONE / ONDE ]", 340, 460, 290, 20, juce::Justification::centred);
 
-    // Cornici di debug per la geometria d'angolo fissa richiesti
-    g.drawRect (656, 380, 343, 59, 1);  // Box PAD X/Y
-    g.drawRect (656, 442, 342, 128, 1); // Box ADSR
+    g.drawRect (656, 380, 343, 59, 1);
+    g.drawRect (656, 442, 342, 128, 1);
 }
 
 void SambucaAudioProcessorEditor::resized()
@@ -178,7 +175,6 @@ void SambucaAudioProcessorEditor::resized()
     int globalCount = 0;
     int adsrCount = 0;
 
-    // Pulsanti Load WAV
     int btnW = 80;
     int btnH = 22;
     if (loadButtonOsc1 != nullptr) loadButtonOsc1->setBounds (30, 195, btnW, btnH);
@@ -189,7 +185,6 @@ void SambucaAudioProcessorEditor::resized()
     {
         if (cs->slider == nullptr) continue;
 
-        // 1. OSCILLATORI (Invariati al centro-alto)
         if (cs->section == "OSC")
         {
             int row = oscCount / 4;
@@ -201,7 +196,6 @@ void SambucaAudioProcessorEditor::resized()
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             oscCount++;
         }
-        // 2. FILTRI (Invariati a sinistra)
         else if (cs->section == "FILTER")
         {
             int row = filterCount / 2;
@@ -213,10 +207,9 @@ void SambucaAudioProcessorEditor::resized()
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             filterCount++;
         }
-        // 3. NUOVA COLONNA LFO (In alto a destra confinata: w:150px h:329px)
         else if (cs->section == "LFO")
         {
-            int row = lfoCount / 2; // Layout compatto a 2 colonne interne alla sezione
+            int row = lfoCount / 2;
             int col = lfoCount % 2;
             int x = 849 + (col * (knobSize + 10));
             int y = 55 + (row * (totalControlHeight + 12));
@@ -225,40 +218,36 @@ void SambucaAudioProcessorEditor::resized()
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             lfoCount++;
         }
-        // 4. SEZIONE FX / MODULATORE (Abbassata di 100px per evitare collisioni)
         else if (cs->section == "FX")
         {
             int row = fxCount / 2;
             int col = fxCount % 2;
             int x = 656 + (col * (knobSize + 25));
-            int y = 155 + (row * (totalControlHeight + 15)); // Incrementato di 100px da 55 originale
+            int y = 155 + (row * (totalControlHeight + 15));
 
             cs->label->setBounds (x, y, knobSize, labelHeight);
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             fxCount++;
         }
-        // 5. ANGOLO IN BASSO A DESTRA (ADSR fissa nel riquadro w:342, h:128)
         else if (cs->section == "ADSR")
         {
             int col = adsrCount % 4; 
-            int x = 656 + (col * (knobSize + 24)); // Distribuisce i 4 controlli uniformemente in 342px
-            int y = 460; // Posizionamento verticale centrato nel box h:128 (Safe Zone rispettata)
+            int x = 656 + (col * (knobSize + 24));
+            int y = 460;
 
             cs->label->setBounds (x, y, knobSize, labelHeight);
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             adsrCount++;
         }
-        // 6. CONTROLLI GLOBALI
         else if (cs->section == "GLOBAL")
         {
             int x = 656 + (globalCount * (knobSize + 25));
-            int y = 290; // Abbassato coerentemente
+            int y = 290;
 
             cs->label->setBounds (x, y, knobSize, labelHeight);
             cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
             globalCount++;
         }
-        // 7. MACRO MORPHING SLIDER
         else if (cs->section == "GLOBAL_SLIDER")
         {
             cs->label->setBounds (340, 220, 300, labelHeight);
