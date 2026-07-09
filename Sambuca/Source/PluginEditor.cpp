@@ -182,7 +182,3 @@ void SambucaAudioProcessorEditor::resized()
         }
     }
 }
-
-    // Nota: I componenti dell'oscilloscopio e del Pad X/Y non sono stati posizionati qui 
-    // perché non sono istanziati in questa classe.
-}
