@@ -22,15 +22,14 @@ struct SambucaOscillator
     {
         if (currentMode != Mode::StandardWave) return;
 
-        switch (type)
+        using FilterMode = typename juce::dsp::LadderFilter<float>::Mode;
+        switch (filterType)
         {
-            case 0: waveOsc.initialise ([] (float x) { return std::sin (x); }); break; // Sine
-            case 1: waveOsc.initialise ([] (float x) { return x / juce::MathConstants<float>::pi; }); break; // Saw
-            case 2: waveOsc.initialise ([] (float x) { return x < 0.0f ? -1.0f : 1.0f; }); break; // Square
-            case 5: waveOsc.initialise ([] (float x) { return ((float)rand() / RAND_MAX) * 2.0f - 1.0f; }); break; // Noise
-            default: waveOsc.initialise ([] (float x) { return std::sin (x); }); break;
+            case 0: voiceFilter1.setMode (static_cast<FilterMode> (0)); break; // LP
+            case 1: voiceFilter1.setMode (static_cast<FilterMode> (1)); break; // HP
+            case 2: voiceFilter1.setMode (static_cast<FilterMode> (2)); break; // BP
+            case 3: voiceFilter1.setMode (static_cast<FilterMode> (2)); break; // BP alternate
         }
-    }
 };
 
 class SynthSound : public juce::SynthesiserSound
