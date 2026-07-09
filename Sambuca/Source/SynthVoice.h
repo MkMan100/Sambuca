@@ -13,6 +13,7 @@ struct SambucaOscillator
     bool isLooping = true;
 
     void prepare (const juce::dsp::ProcessSpec& spec) { waveOsc.prepare (spec); }
+    
     void setFrequency (float frequency, double hostSampleRate)
     {
         if (currentMode == Mode::StandardWave) waveOsc.setFrequency (frequency);
@@ -22,14 +23,15 @@ struct SambucaOscillator
     {
         if (currentMode != Mode::StandardWave) return;
 
-        using FilterMode = typename juce::dsp::LadderFilter<float>::Mode;
-        switch (filterType)
+        switch (type)
         {
-            case 0: voiceFilter1.setMode (static_cast<FilterMode> (0)); break; // LP
-            case 1: voiceFilter1.setMode (static_cast<FilterMode> (1)); break; // HP
-            case 2: voiceFilter1.setMode (static_cast<FilterMode> (2)); break; // BP
-            case 3: voiceFilter1.setMode (static_cast<FilterMode> (2)); break; // BP alternate
+            case 0: waveOsc.initialise ([] (float x) { return std::sin (x); }); break; // Sine
+            case 1: waveOsc.initialise ([] (float x) { return x / juce::MathConstants<float>::pi; }); break; // Saw
+            case 2: waveOsc.initialise ([] (float x) { return x < 0.0f ? -1.0f : 1.0f; }); break; // Square
+            case 5: waveOsc.initialise ([] (float x) { return ((float)rand() / RAND_MAX) * 2.0f - 1.0f; }); break; // Noise
+            default: waveOsc.initialise ([] (float x) { return std::sin (x); }); break;
         }
+    }
 };
 
 class SynthSound : public juce::SynthesiserSound
@@ -190,12 +192,13 @@ public:
         float res1 = (resParam != nullptr) ? resParam->load() : 1.0f;
         int filterType = (typeParam != nullptr) ? static_cast<int>(typeParam->load()) : 0;
 
+        using FilterMode = typename juce::dsp::LadderFilter<float>::Mode;
         switch (filterType)
         {
-            case 0: voiceFilter1.setMode(juce::dsp::LadderFilterMode::lowPass); break;
-            case 1: voiceFilter1.setMode(juce::dsp::LadderFilterMode::highPass); break;
-            case 2: voiceFilter1.setMode(juce::dsp::LadderFilterMode::bandPass); break;
-            case 3: voiceFilter1.setMode(juce::dsp::LadderFilterMode::bandPass); break; 
+            case 0: voiceFilter1.setMode (static_cast<FilterMode> (0)); break; 
+            case 1: voiceFilter1.setMode (static_cast<FilterMode> (1)); break; 
+            case 2: voiceFilter1.setMode (static_cast<FilterMode> (2)); break; 
+            case 3: voiceFilter1.setMode (static_cast<FilterMode> (2)); break; 
         }
         
         float modulatedCutoff1 = juce::jlimit (20.0f, 20000.0f, baseCutoff1 + (lastLfoValue * 5000.0f));
