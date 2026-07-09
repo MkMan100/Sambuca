@@ -116,19 +116,27 @@ void SambucaAudioProcessorEditor::paint (juce::Graphics& g)
 
 void SambucaAudioProcessorEditor::resized()
 {
-    // Divisione delle macro-aree verticali (Finestra alta 700px)
-    juce::Rectangle<int> areaOsc = getLocalBounds().removeFromTop(220).reduced(10);
-    juce::Rectangle<int> areaMiddle = getLocalBounds().removeFromTop(220).reduced(10);
-    juce::Rectangle<int> areaBottom = getLocalBounds().reduced(10);
+    // Prendiamo l'intera area della finestra (1200x700)
+    auto totalArea = getLocalBounds().reduced(20); // 20px di margine tutto intorno
+
+    // Tagliamo la finestra in 3 grandi fette verticali distinte
+    // Ciascuna si prende una fetta pulita senza toccare le altre
+    juce::Rectangle<int> areaOsc    = totalArea.removeFromTop(200);
+    totalArea.removeFromTop(20); // Spazio vuoto di sicurezza (Gap)
+    
+    juce::Rectangle<int> areaMiddle = totalArea.removeFromTop(200);
+    totalArea.removeFromTop(20); // Spazio vuoto di sicurezza (Gap)
+    
+    juce::Rectangle<int> areaBottom = totalArea; // Il resto va in basso
 
     // --- POSIZIONAMENTO PULSANTI LOAD ---
-    int btnW = 90; int btnH = 24;
+    int btnW = 100; int btnH = 26;
     if (loadButtonOsc1 != nullptr) loadButtonOsc1->setBounds (areaOsc.getX(), areaOsc.getY(), btnW, btnH);
-    if (loadButtonOsc2 != nullptr) loadButtonOsc2->setBounds (areaOsc.getX() + 100, areaOsc.getY(), btnW, btnH);
-    if (loadButtonOsc3 != nullptr) loadButtonOsc3->setBounds (areaOsc.getX() + 200, areaOsc.getY(), btnW, btnH);
+    if (loadButtonOsc2 != nullptr) loadButtonOsc2->setBounds (areaOsc.getX() + 110, areaOsc.getY(), btnW, btnH);
+    if (loadButtonOsc3 != nullptr) loadButtonOsc3->setBounds (areaOsc.getX() + 220, areaOsc.getY(), btnW, btnH);
 
     // Indici per il calcolo delle sotto-griglie
-    int oscIdx = 0, filterIdx = 0, lfoIdx = 0, fxIdx = 0, adsrIdx = 0;
+    int oscIdx = 0, filterIdx = 0, lfoIdx = 0, fxIdx = 0, adsrIdx = 0, globalIdx = 0;
 
     for (const auto& cs : connectedSliders)
     {
@@ -138,52 +146,53 @@ void SambucaAudioProcessorEditor::resized()
 
         if (cs->section == "OSC")
         {
-            // Grid 4 colonne x 3 righe (12 parametri totali per 3 OSC)
+            // Spostato a destra di 360px rispetto ai pulsanti Load
             int col = oscIdx % 4;
             int row = oscIdx / 4;
-            targetBounds = juce::Rectangle<int> (areaOsc.getX() + 350 + (col * 80), areaOsc.getY() + (row * 65), 70, 60);
+            targetBounds = juce::Rectangle<int> (areaOsc.getX() + 360 + (col * 85), areaOsc.getY() + (row * 85), 75, 80);
             oscIdx++;
         }
         else if (cs->section == "FILTER")
         {
-            // Grid 4 colonne x 2 righe (8 parametri totali per 2 Filtri)
+            // Zona sinistra dell'area centrale (Filtri affiancati ordinati)
             int col = filterIdx % 4;
             int row = filterIdx / 4;
-            targetBounds = juce::Rectangle<int> (areaMiddle.getX() + (col * 80), areaMiddle.getY() + (row * 85), 75, 80);
+            targetBounds = juce::Rectangle<int> (areaMiddle.getX() + (col * 85), areaMiddle.getY() + (row * 85), 75, 80);
             filterIdx++;
         }
         else if (cs->section == "LFO")
         {
-            // Grid 3 colonne x 3 righe (9 parametri totali per 3 LFO)
+            // Zona destra dell'area centrale (LFO distanziati dai filtri)
             int col = lfoIdx % 3;
             int row = lfoIdx / 3;
-            targetBounds = juce::Rectangle<int> (areaMiddle.getX() + 500 + (col * 75), areaMiddle.getY() + (row * 65), 70, 60);
+            targetBounds = juce::Rectangle<int> (areaMiddle.getX() + 550 + (col * 85), areaMiddle.getY() + (row * 85), 75, 80);
             lfoIdx++;
         }
         else if (cs->section == "FX")
         {
-            // Fila singola orizzontale in basso a sinistra (4 controlli)
-            targetBounds = juce::Rectangle<int> (areaBottom.getX() + (fxIdx * 80), areaBottom.getY() + 10, 75, 80);
+            // Riga inferiore, blocco a sinistra
+            targetBounds = juce::Rectangle<int> (areaBottom.getX() + (fxIdx * 85), areaBottom.getY() + 10, 75, 80);
             fxIdx++;
         }
         else if (cs->section == "ADSR")
         {
-            // Fila singola orizzontale in basso al centro (4 controlli)
-            targetBounds = juce::Rectangle<int> (areaBottom.getX() + 400 + (adsrIdx * 80), areaBottom.getY() + 10, 75, 80);
+            // Riga inferiore, blocco centrale
+            targetBounds = juce::Rectangle<int> (areaBottom.getX() + 450 + (adsrIdx * 85), areaBottom.getY() + 10, 75, 80);
             adsrIdx++;
         }
         else if (cs->section == "GLOBAL")
         {
-            // Controlli finali in basso a destra
-            targetBounds = juce::Rectangle<int> (areaBottom.getX() + 800 + (adsrIdx * 80), areaBottom.getY() + 10, 75, 80);
+            // Riga inferiore, blocco a destra (Master Vol, ecc. isolati dagli FX)
+            targetBounds = juce::Rectangle<int> (areaBottom.getX() + 850 + (globalIdx * 85), areaBottom.getY() + 10, 75, 80);
+            globalIdx++;
         }
         else if (cs->section == "GLOBAL_SLIDER") 
         {
-            // Slider orizzontale del morph posizionato sotto i pulsanti Load
-            targetBounds = juce::Rectangle<int> (areaOsc.getX(), areaOsc.getY() + 60, 300, 40);
+            // Lo slider orizzontale del morphing è isolato sotto i pulsanti load
+            targetBounds = juce::Rectangle<int> (areaOsc.getX(), areaOsc.getY() + 50, 320, 50);
         }
 
-        // Applica le coordinate calcolate al Slider e alla Label corrispondente
+        // Applica le coordinate calcolate in modo che la label stia sopra il knob
         if (!targetBounds.isEmpty())
         {
             cs->label->setBounds (targetBounds.getX(), targetBounds.getY(), targetBounds.getWidth(), 18);
