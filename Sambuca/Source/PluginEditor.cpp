@@ -4,11 +4,10 @@
 SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
-    // 1. DIMENSIONI FINESTRA
-    setSize (1024, 600);
-    backgroundImage = juce::Image(); 
+    // Ingrandiamo la finestra per evitare qualsiasi accavallamento
+    setSize (1200, 700);
 
-    // 2. CREAZIONE CONTROLLI CON NOMI PULITI
+    // 1. CREAZIONE E CONNESSIONE MANUALE DEI CONTROLLI
     // Oscillatori (OSC 1, 2, 3)
     for (int i = 1; i <= 3; ++i)
     {
@@ -47,49 +46,26 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     createAndConnectKnob ("reverbSize", "FX", "Reverb Size");
     createAndConnectKnob ("fxMix", "FX", "FX Mix");
 
-    // Globali
+    // Globali & ADSR
     createAndConnectKnob ("wavetableMorph", "GLOBAL_SLIDER", "Wave Morph"); 
     createAndConnectKnob ("masterVolume", "GLOBAL", "Master Vol");
     createAndConnectKnob ("envTimeScale", "GLOBAL", "Env Scale");
 
-    // Inviluppo ADSR
     createAndConnectKnob ("attack", "ADSR", "Attack");
     createAndConnectKnob ("decay", "ADSR", "Decay");
     createAndConnectKnob ("sustain", "ADSR", "Sustain");
     createAndConnectKnob ("release", "ADSR", "Release");
 
-    // 3. INIZIALIZZAZIONE PULSANTI LOAD WAV
-    loadButtonOsc1 = std::make_unique<juce::TextButton> ("Load OSC 1");
-    loadButtonOsc2 = std::make_unique<juce::TextButton> ("Load OSC 2");
-    loadButtonOsc3 = std::make_unique<juce::TextButton> ("Load OSC 3");
+    // 2. PULSANTI LOAD WAV
+    loadButtonOsc1 = std::make_unique<juce::TextButton> ("LOAD WAV 1");
+    loadButtonOsc2 = std::make_unique<juce::TextButton> ("LOAD WAV 2");
+    loadButtonOsc3 = std::make_unique<juce::TextButton> ("LOAD WAV 3");
+    
+    addAndMakeVisible (*loadButtonOsc1);
+    addAndMakeVisible (*loadButtonOsc2);
+    addAndMakeVisible (*loadButtonOsc3);
 
-    auto setupButton = [this](juce::TextButton& btn, int oscNum) {
-        btn.setButtonText ("LOAD WAV " + juce::String(oscNum));
-        addAndMakeVisible (btn);
-        
-        btn.onClick = [this, oscNum]() {
-            fileChooser = std::make_unique<juce::FileChooser> (
-                "Seleziona un file WAV per l'Oscillatore " + juce::String(oscNum),
-                juce::File::getSpecialLocation (juce::File::userHomeDirectory),
-                "*.wav;*.wave"
-            );
-
-            fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-                [this, oscNum] (const juce::FileChooser& chooser)
-                {
-                    auto file = chooser.getResult();
-                    if (file.existsAsFile())
-                    {
-                        audioProcessor.loadAudioFile (file, oscNum - 1);
-                    }
-                });
-        };
-    }; 
-
-    setupButton (*loadButtonOsc1, 1);
-    setupButton (*loadButtonOsc2, 2);
-    setupButton (*loadButtonOsc3, 3);
-
+    // Chiamata di sicurezza al ridimensionamento nativo
     resized();
 } 
 
@@ -104,12 +80,7 @@ SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor()
 
 void SambucaAudioProcessorEditor::createAndConnectKnob (const juce::String& parameterID, const juce::String& sectionName, const juce::String& displayName)
 {
-    if (audioProcessor.apvts.getParameter (parameterID) == nullptr)
-    {
-        juce::File logFile = juce::File::getSpecialLocation(juce::File::userDesktopDirectory).getChildFile("sambuca_debug.txt");
-        logFile.appendText("PARAMETRO MANCANTE: " + parameterID + "\n");
-        return; 
-    }
+    if (audioProcessor.apvts.getParameter (parameterID) == nullptr) return;
 
     auto cs = std::make_unique<ConnectedSlider>();
     cs->slider = std::make_unique<juce::Slider>();
@@ -122,7 +93,8 @@ void SambucaAudioProcessorEditor::createAndConnectKnob (const juce::String& para
     } else {
         cs->slider->setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
     }
-    cs->slider->setTextBoxStyle (juce::Slider::TextBoxBelow, false, 55, 14);
+    
+    cs->slider->setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 14);
     addAndMakeVisible (*cs->slider);
 
     cs->label->setText (displayName, juce::dontSendNotification);
@@ -139,119 +111,94 @@ void SambucaAudioProcessorEditor::createAndConnectKnob (const juce::String& para
 
 void SambucaAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour (0xFF23272A)); 
-
-    g.setColour (juce::Colours::white);
-    g.setFont (16.0f);
-    
-    g.drawText ("OSCILLATORS CONTROLS", 340, 25, 300, 20, juce::Justification::left);
-    g.drawText ("FILTERS", 30, 240, 200, 20, juce::Justification::left);
-    g.drawText ("LFO COLUMN", 849, 25, 150, 20, juce::Justification::centred);
-    g.drawText ("EFFECTS & MASTER", 700, 125, 300, 20, juce::Justification::left);
-    g.drawText ("PAD X/Y", 656, 355, 343, 20, juce::Justification::left);
-    g.drawText ("ENVELOPE (ADSR)", 656, 420, 342, 20, juce::Justification::left);
-    
-    g.setColour (juce::Colours::dimgrey);
-    g.drawRect (30, 30, 260, 150, 1);
-    
-    g.drawRect (340, 380, 290, 180, 1);
-    g.setFont (12.0f);
-    g.drawText ("[ SPAZIO VISUALIZZAZIONE / ONDE ]", 340, 460, 290, 20, juce::Justification::centred);
-
-    g.drawRect (656, 380, 343, 59, 1);
-    g.drawRect (656, 442, 342, 128, 1);
+    g.fillAll (juce::Colour (0xFF1C1A27)); // Sfondo scuro omogeneo uniforme
 }
 
 void SambucaAudioProcessorEditor::resized()
 {
-    const int knobSize = 55;
-    const int labelHeight = 15;
-    const int totalControlHeight = knobSize + labelHeight;
+    // RESET COMPLETO CON JUCE::GRID per eliminare gli accavallamenti
+    juce::Grid grid;
+    grid.rowGap = juce::Grid::Px (15);
+    grid.columnGap = juce::Grid::Px (15);
 
-    int oscCount = 0;
-    int filterCount = 0;
-    int lfoCount = 0;
-    int fxCount = 0;
-    int globalCount = 0;
-    int adsrCount = 0;
+    // Definiamo 3 grandi righe flessibili e 3 colonne principali
+    grid.templateRows = { juce::Grid::TrackInfo (juce::Grid::Fr (1)), 
+                          juce::Grid::TrackInfo (juce::Grid::Fr (1)), 
+                          juce::Grid::TrackInfo (juce::Grid::Fr (1)) };
+                          
+    grid.templateColumns = { juce::Grid::TrackInfo (juce::Grid::Fr (1)), 
+                             juce::Grid::TrackInfo (juce::Grid::Fr (1)), 
+                             juce::Grid::TrackInfo (juce::Grid::Fr (1)) };
 
-    int btnW = 80;
-    int btnH = 22;
-    if (loadButtonOsc1 != nullptr) loadButtonOsc1->setBounds (30, 195, btnW, btnH);
-    if (loadButtonOsc2 != nullptr) loadButtonOsc2->setBounds (120, 195, btnW, btnH);
-    if (loadButtonOsc3 != nullptr) loadButtonOsc3->setBounds (210, 195, btnW, btnH);
+    // Creiamo dei contenitori logici temporanei per raggruppare i componenti
+    juce::Rectangle<int> areaOsc = getLocalBounds().removeFromTop(220).reduced(10);
+    juce::Rectangle<int> areaMiddle = getLocalBounds().removeFromTop(220).reduced(10);
+    juce::Rectangle<int> areaBottom = getLocalBounds().reduced(10);
+
+    // --- POSIZIONAMENTO PULSANTI LOAD (In alto a sinistra sopra gli OSC) ---
+    int btnW = 90; int btnH = 24;
+    loadButtonOsc1->setBounds (areaOsc.getX(), areaOsc.getY(), btnW, btnH);
+    loadButtonOsc2->setBounds (areaOsc.getX() + 100, areaOsc.getY(), btnW, btnH);
+    loadButtonOsc3->setBounds (areaOsc.getX() + 200, areaOsc.getY(), btnW, btnH);
+
+    // --- GRIGLIA AUTOMATICA PER I MANOPOLINI ---
+    int oscIdx = 0, filterIdx = 0, lfoIdx = 0, fxIdx = 0, adsrIdx = 0;
 
     for (const auto& cs : connectedSliders)
     {
         if (cs->slider == nullptr) continue;
 
+        juce::Rectangle<int> targetBounds;
+
         if (cs->section == "OSC")
         {
-            int row = oscCount / 4;
-            int col = oscCount % 4;
-            int x = 340 + (col * (knobSize + 25));
-            int y = 55 + (row * (totalControlHeight + 15));
-            
-            cs->label->setBounds (x, y, knobSize, labelHeight);
-            cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
-            oscCount++;
+            // Disposti in fila nella metà destra dell'area superiore
+            int col = oscIdx % 12;
+            targetBounds = juce::Rectangle<int> (areaOsc.getX() + 300 + (col * 70), areaOsc.getY(), 65, 85);
+            oscIdx++;
         }
         else if (cs->section == "FILTER")
         {
-            int row = filterCount / 2;
-            int col = filterCount % 2;
-            int x = 25 + (col * (knobSize + 25));
-            int y = 270 + (row * (totalControlHeight + 15));
-
-            cs->label->setBounds (x, y, knobSize, labelHeight);
-            cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
-            filterCount++;
+            // Filtri affiancati in orizzontale (non più in una colonna stretta)
+            int col = filterIdx % 8;
+            targetBounds = juce::Rectangle<int> (areaMiddle.getX() + (col * 75), areaMiddle.getY() + 10, 70, 85);
+            filterIdx++;
         }
         else if (cs->section == "LFO")
         {
-            int row = lfoCount / 2;
-            int col = lfoCount % 2;
-            int x = 849 + (col * (knobSize + 10));
-            int y = 55 + (row * (totalControlHeight + 12));
-
-            cs->label->setBounds (x, y, knobSize, labelHeight);
-            cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
-            lfoCount++;
+            int col = lfoIdx % 9;
+            targetBounds = juce::Rectangle<int> (areaMiddle.getX() + 600 + (col * 65), areaMiddle.getY() + 10, 60, 80);
+            lfoIdx++;
         }
         else if (cs->section == "FX")
         {
-            int row = fxCount / 2;
-            int col = fxCount % 2;
-            int x = 656 + (col * (knobSize + 25));
-            int y = 155 + (row * (totalControlHeight + 15));
-
-            cs->label->setBounds (x, y, knobSize, labelHeight);
-            cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
-            fxCount++;
+            int col = fxIdx % 4;
+            targetBounds = juce::Rectangle<int> (areaBottom.getX() + (col * 75), areaBottom.getY() + 10, 70, 85);
+            fxIdx++;
         }
         else if (cs->section == "ADSR")
         {
-            int col = adsrCount % 4; 
-            int x = 656 + (col * (knobSize + 24));
-            int y = 460;
-
-            cs->label->setBounds (x, y, knobSize, labelHeight);
-            cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
-            adsrCount++;
+            int col = adsrIdx % 4;
+            targetBounds = juce::Rectangle<int> (areaBottom.getX() + 400 + (col * 75), areaBottom.getY() + 10, 70, 85);
+            adsrIdx++;
         }
         else if (cs->section == "GLOBAL")
         {
-            int x = 656 + (globalCount * (knobSize + 25));
-            int y = 290;
-
-            cs->label->setBounds (x, y, knobSize, labelHeight);
-            cs->slider->setBounds (x, y + labelHeight, knobSize, knobSize);
-            globalCount++;
+            // Separato dal riverbero e dal master per evitare collisioni
+            targetBounds = juce::Rectangle<int> (areaBottom.getX() + 800, areaBottom.getY() + 10, 70, 85);
         }
-        else if (cs->section == "GLOBAL_SLIDER")
+        else if (cs->section == "GLOBAL_SLIDER") // Slide del morphing abbassata
         {
-            cs->label->setBounds (340, 220, 300, labelHeight);
-            cs->slider->setBounds (340, 220 + labelHeight, 295, 25);
+            targetBounds = juce::Rectangle<int> (areaOsc.getX(), areaOsc.getY() + 140, 400, 30);
+        }
+
+        if (!targetBounds.isEmpty())
+        {
+            cs->slider->setBounds (targetBounds.getX(), targetBounds.getY() + 15, targetBounds.getWidth(), targetBounds.getHeight() - 15);
+            cs->label->setBounds (targetBounds.getX(), targetBounds.getY(), targetBounds.getWidth(), 15);
         }
     }
+
+    // Nota: I componenti dell'oscilloscopio e del Pad X/Y non sono stati posizionati qui 
+    // perché non sono istanziati in questa classe.
 }
