@@ -72,7 +72,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SambucaAudioProcessor::creat
         juce::String prefix = "filter" + juce::String(i);
         params.push_back(std::make_unique<juce::AudioParameterChoice>(prefix + "Type", "Filter " + juce::String(i) + " Type", juce::StringArray{"Lowpass", "Highpass", "Bandpass", "Notch"}, 0));
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Cutoff", "Filter " + juce::String(i) + " Cutoff", 20.0f, 20000.0f, 1000.0f));
-        params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Resonance", "Filter " + juce::String(i) + " Resonance", 0.1f, 10.0f, 1.0f));
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Resonance", "Filter " + juce::String(i) + " Resonance", 0.1f, 3.5f, 1.0f));
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Drive", "Filter " + juce::String(i) + " Drive", 1.0f, 5.0f, 1.0f));
     }
 
@@ -168,40 +168,47 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 
     if (fxMix > 0.0f)
     {
-        delayBuffer.makeCopyOf(buffer); 
-        juce::dsp::AudioBlock<float> delayBlock(delayBuffer);
-        juce::dsp::ProcessContextReplacing<float> delayContext(delayBlock);
-
         auto* delayTimePtr = apvts.getRawParameterValue("delayTime");
         float delaySecs = (delayTimePtr != nullptr) ? delayTimePtr->load() : 0.3f;
-        
+    
         if (currentSampleRate > 0)
         {
-            delayModule.setDelay(juce::jlimit(0.0f, 2.0f, delaySecs) * currentSampleRate);
+        delayModule.setDelay(juce::jlimit(0.0f, 2.0f, delaySecs) * currentSampleRate);
         }
 
         auto* feedbackPtr = apvts.getRawParameterValue("delayFeedback");
         float feedback = (feedbackPtr != nullptr) ? juce::jlimit(0.0f, 0.95f, feedbackPtr->load()) : 0.5f;
 
-        for (int ch = 0; ch < totalNumOutputChannels; ++ch)
+        int numSamples = buffer.getNumSamples();
+
+        for (int sample = 0; sample < numSamples; ++sample)
         {
-            delayModule.pushSample(ch, delayBuffer.getReadPointer(ch)[0] * feedback);
+            for (int ch = 0; ch < totalNumOutputChannels; ++ch)
+            {
+                float inputSample = buffer.getReadPointer(ch)[sample];
+            
+                // Ottieni il campione ritardato dal modulo
+                float delayedSample = delayModule.popSample(ch);
+            
+                // Spingi nel delay il campione attuale sommato al feedback di quello precedente
+                delayModule.pushSample(ch, inputSample + (delayedSample * feedback));
+            
+                // Somma l'effetto wet direttamente nel buffer principale in base al mix
+                buffer.getWritePointer(ch)[sample] += delayedSample * fxMix;
+            }
         }
 
-        delayModule.process(delayContext);
-
-        auto* reverbSizePtr = apvts.getRawParameterValue("reverbSize");
-        reverbParameters.roomSize = (reverbSizePtr != nullptr) ? juce::jlimit(0.0f, 1.0f, reverbSizePtr->load()) : 0.5f;
-        reverbParameters.wetLevel = fxMix;
-        reverbParameters.dryLevel = 1.0f - fxMix;
-        reverbModule.setParameters(reverbParameters);
-        reverbModule.process(delayContext);
-
-        for (int ch = 0; ch < totalNumOutputChannels; ++ch)
-        {
-            buffer.addFrom(ch, 0, delayBuffer.getReadPointer(ch), buffer.getNumSamples(), fxMix);
-        }
-    }
+    // Gestione Riverbero (applicato sul buffer globale per ambiente finale)
+    auto* reverbSizePtr = apvts.getRawParameterValue("reverbSize");
+    reverbParameters.roomSize = (reverbSizePtr != nullptr) ? juce::jlimit(0.0f, 1.0f, reverbSizePtr->load()) : 0.5f;
+    reverbParameters.wetLevel = fxMix * 0.5f; // Evitiamo che il riverbero anneghi tutto
+    reverbParameters.dryLevel = 1.0f;
+    reverbModule.setParameters(reverbParameters);
+    
+    juce::dsp::AudioBlock<float> mainBlock(buffer);
+    juce::dsp::ProcessContextReplacing<float> mainContext(mainBlock);
+    reverbModule.process(mainContext);
+}
 
     auto* masterGainPtr = apvts.getRawParameterValue("masterVolume");
     float masterGain = (masterGainPtr != nullptr) ? masterGainPtr->load() : 0.8f;
