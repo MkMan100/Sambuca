@@ -4,10 +4,19 @@
 SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
-    // Ingrandiamo la finestra per evitare qualsiasi accavallamento
+    // 1. ALLOCAZIONE DEI PULSANTI (Deve essere in cima per evitare crash in resized())
+    loadButtonOsc1 = std::make_unique<juce::TextButton> ("LOAD WAV 1");
+    loadButtonOsc2 = std::make_unique<juce::TextButton> ("LOAD WAV 2");
+    loadButtonOsc3 = std::make_unique<juce::TextButton> ("LOAD WAV 3");
+    
+    addAndMakeVisible (*loadButtonOsc1);
+    addAndMakeVisible (*loadButtonOsc2);
+    addAndMakeVisible (*loadButtonOsc3);
+
+    // Ora impostiamo la dimensione
     setSize (1200, 700);
 
-    // 1. CREAZIONE E CONNESSIONE MANUALE DEI CONTROLLI
+    // 2. CREAZIONE E CONNESSIONE DEI CONTROLLI
     // Oscillatori (OSC 1, 2, 3)
     for (int i = 1; i <= 3; ++i)
     {
@@ -56,15 +65,6 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     createAndConnectKnob ("sustain", "ADSR", "Sustain");
     createAndConnectKnob ("release", "ADSR", "Release");
 
-    // 2. PULSANTI LOAD WAV
-    loadButtonOsc1 = std::make_unique<juce::TextButton> ("LOAD WAV 1");
-    loadButtonOsc2 = std::make_unique<juce::TextButton> ("LOAD WAV 2");
-    loadButtonOsc3 = std::make_unique<juce::TextButton> ("LOAD WAV 3");
-    
-    addAndMakeVisible (*loadButtonOsc1);
-    addAndMakeVisible (*loadButtonOsc2);
-    addAndMakeVisible (*loadButtonOsc3);
-
     // Chiamata di sicurezza al ridimensionamento nativo
     resized();
 } 
@@ -111,37 +111,23 @@ void SambucaAudioProcessorEditor::createAndConnectKnob (const juce::String& para
 
 void SambucaAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour (0xFF1C1A27)); // Sfondo scuro omogeneo uniforme
+    g.fillAll (juce::Colour (0xFF1C1A27)); 
 }
 
 void SambucaAudioProcessorEditor::resized()
 {
-    // RESET COMPLETO CON JUCE::GRID per eliminare gli accavallamenti
-    juce::Grid grid;
-    grid.rowGap = juce::Grid::Px (15);
-    grid.columnGap = juce::Grid::Px (15);
-
-    // Definiamo 3 grandi righe flessibili e 3 colonne principali
-    grid.templateRows = { juce::Grid::TrackInfo (juce::Grid::Fr (1)), 
-                          juce::Grid::TrackInfo (juce::Grid::Fr (1)), 
-                          juce::Grid::TrackInfo (juce::Grid::Fr (1)) };
-                          
-    grid.templateColumns = { juce::Grid::TrackInfo (juce::Grid::Fr (1)), 
-                             juce::Grid::TrackInfo (juce::Grid::Fr (1)), 
-                             juce::Grid::TrackInfo (juce::Grid::Fr (1)) };
-
     // Creiamo dei contenitori logici temporanei per raggruppare i componenti
     juce::Rectangle<int> areaOsc = getLocalBounds().removeFromTop(220).reduced(10);
     juce::Rectangle<int> areaMiddle = getLocalBounds().removeFromTop(220).reduced(10);
     juce::Rectangle<int> areaBottom = getLocalBounds().reduced(10);
 
-    // --- POSIZIONAMENTO PULSANTI LOAD (In alto a sinistra sopra gli OSC) ---
+    // --- POSIZIONAMENTO PULSANTI LOAD (Ora è sicuro perché non sono nullptr) ---
     int btnW = 90; int btnH = 24;
-    loadButtonOsc1->setBounds (areaOsc.getX(), areaOsc.getY(), btnW, btnH);
-    loadButtonOsc2->setBounds (areaOsc.getX() + 100, areaOsc.getY(), btnW, btnH);
-    loadButtonOsc3->setBounds (areaOsc.getX() + 200, areaOsc.getY(), btnW, btnH);
+    if (loadButtonOsc1 != nullptr) loadButtonOsc1->setBounds (areaOsc.getX(), areaOsc.getY(), btnW, btnH);
+    if (loadButtonOsc2 != nullptr) loadButtonOsc2->setBounds (areaOsc.getX() + 100, areaOsc.getY(), btnW, btnH);
+    if (loadButtonOsc3 != nullptr) loadButtonOsc3->setBounds (areaOsc.getX() + 200, areaOsc.getY(), btnW, btnH);
 
-    // --- GRIGLIA AUTOMATICA PER I MANOPOLINI ---
+    // --- MANOPOLINI ---
     int oscIdx = 0, filterIdx = 0, lfoIdx = 0, fxIdx = 0, adsrIdx = 0;
 
     for (const auto& cs : connectedSliders)
@@ -152,14 +138,12 @@ void SambucaAudioProcessorEditor::resized()
 
         if (cs->section == "OSC")
         {
-            // Disposti in fila nella metà destra dell'area superiore
             int col = oscIdx % 12;
             targetBounds = juce::Rectangle<int> (areaOsc.getX() + 300 + (col * 70), areaOsc.getY(), 65, 85);
             oscIdx++;
         }
         else if (cs->section == "FILTER")
         {
-            // Filtri affiancati in orizzontale (non più in una colonna stretta)
             int col = filterIdx % 8;
             targetBounds = juce::Rectangle<int> (areaMiddle.getX() + (col * 75), areaMiddle.getY() + 10, 70, 85);
             filterIdx++;
@@ -184,10 +168,9 @@ void SambucaAudioProcessorEditor::resized()
         }
         else if (cs->section == "GLOBAL")
         {
-            // Separato dal riverbero e dal master per evitare collisioni
             targetBounds = juce::Rectangle<int> (areaBottom.getX() + 800, areaBottom.getY() + 10, 70, 85);
         }
-        else if (cs->section == "GLOBAL_SLIDER") // Slide del morphing abbassata
+        else if (cs->section == "GLOBAL_SLIDER") 
         {
             targetBounds = juce::Rectangle<int> (areaOsc.getX(), areaOsc.getY() + 140, 400, 30);
         }
@@ -198,6 +181,7 @@ void SambucaAudioProcessorEditor::resized()
             cs->label->setBounds (targetBounds.getX(), targetBounds.getY(), targetBounds.getWidth(), 15);
         }
     }
+}
 
     // Nota: I componenti dell'oscilloscopio e del Pad X/Y non sono stati posizionati qui 
     // perché non sono istanziati in questa classe.
