@@ -17,6 +17,7 @@ public:
 private:
     SambucaAudioProcessor& audioProcessor;
     SambucaLookAndFeel sambucaLookAndFeel;
+    SambucaLookAndFeel customLookAndFeel;
 
     struct ConnectedSlider
     {
