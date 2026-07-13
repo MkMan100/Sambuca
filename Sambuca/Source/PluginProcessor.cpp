@@ -34,7 +34,14 @@ SambucaAudioProcessor::SambucaAudioProcessor()
     mySynth.clearVoices();
     for (int i = 0; i < numVoices; ++i)
     {
-        mySynth.addVoice (new SynthVoice (apvts)); 
+        auto* voice = new SynthVoice (apvts);
+        
+        for (int oscIdx = 0; oscIdx < 3; ++oscIdx)
+        {
+            voice->setSampleBufferPointer (oscIdx, &loadedSampleBuffers[oscIdx]);
+        }
+        
+        mySynth.addVoice (voice); 
     }
 
     mySynth.clearSounds();
