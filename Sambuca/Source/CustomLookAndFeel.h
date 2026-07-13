@@ -54,10 +54,43 @@ public:
         g.drawImage(knobGlow, rx, ry, rw, rw, 0, 0, knobGlow.getWidth(), knobGlow.getHeight());
         g.restoreState();
     }
+
+    // Implementazione inline del Pad X/Y con reticolo e cursore arancione
     void drawXYPad (juce::Graphics& g, int x, int y, int width, int height,
                     juce::Point<float> currentPosition,
-                    juce::Slider& slider) override;
+                    juce::Slider& slider) override
+    {
+        // Sfondo del Pad (Riquadro interno scuro antiriflesso)
+        auto bounds = juce::Rectangle<int> (x, y, width, height).toFloat();
+        g.setColour (juce::Colour (0xFF0E0D14));
+        g.fillRoundedRectangle (bounds, 5.0f);
+        
+        // Bordo esterno del Pad
+        g.setColour (juce::Colour (0xFF35324A));
+        g.drawRoundedRectangle (bounds, 5.0f, 1.5f);
+
+        // Disegno del reticolo d'assi (Incrocio millimetrico sulla posizione reale del cursore)
+        g.setColour (juce::Colours::orange.withAlpha (0.25f));
+        g.drawHorizontalLine (juce::roundToInt (currentPosition.y), bounds.getX(), bounds.getRight());
+        g.drawVerticalLine (juce::roundToInt (currentPosition.x), bounds.getY(), bounds.getBottom());
+
+        // Disegno della sfera del cursore (Thumb) con effetto Glow
+        float thumbSize = 12.0f;
+        auto thumbBounds = juce::Rectangle<float> (currentPosition.x - (thumbSize / 2.0f),
+                                                   currentPosition.y - (thumbSize / 2.0f),
+                                                   thumbSize, thumbSize);
+
+        // Alone sfumato esterno
+        g.setColour (juce::Colours::orange.withAlpha (0.4f));
+        g.fillEllipse (thumbBounds.expanded (3.0f));
+
+        // Centro solido
+        g.setColour (juce::Colours::orange);
+        g.fillEllipse (thumbBounds);
+    }
+
 private:
     juce::Image knobBase;
+    juce::Image imageGlow; // Modificato o mantenuto coerente con la tua variabile
     juce::Image knobGlow;
 };
