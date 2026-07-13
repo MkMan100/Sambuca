@@ -147,12 +147,77 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
+    // 1. Generazione del suono dagli oscillatori del synth
     mySynth.renderNextBlock (buffer, midiMessages, 0, buffer.getNumSamples());
 
-    juce::dsp::AudioBlock<float> block(buffer);
-    juce::dsp::ProcessContextReplacing<float> context(block);
+    // ==========================================
+    // SEZIONE FILTRI E SATURAZIONE (SUPER FUZZ)
+    // ==========================================
+    auto numSamples = buffer.getNumSamples();
 
-    // Gestione Effetti (Delay con Loop di Feedback attivo)
+    auto type1 = static_cast<int>(apvts.getRawParameterValue("filter1Type")->load());
+    auto cutoff1 = apvts.getRawParameterValue("filter1Cutoff")->load();
+    auto res1 = apvts.getRawParameterValue("filter1Resonance")->load();
+    auto drive1 = apvts.getRawParameterValue("filter1Drive")->load();
+
+    auto type2 = static_cast<int>(apvts.getRawParameterValue("filter2Type")->load());
+    auto cutoff2 = apvts.getRawParameterValue("filter2Cutoff")->load();
+    auto res2 = apvts.getRawParameterValue("filter2Resonance")->load();
+    auto drive2 = apvts.getRawParameterValue("filter2Drive")->load();
+
+    float safeRes1 = juce::jlimit(0.1f, 2.5f / (drive1 * 0.5f + 1.0f), res1);
+    float safeRes2 = juce::jlimit(0.1f, 2.5f / (drive2 * 0.5f + 1.0f), res2);
+
+    auto setFilterType = [](auto& filter, int type) {
+        switch (type) {
+            case 0: filter.setType(juce::dsp::StateVariableTPTFilterType::lowpass); break;
+            case 1: filter.setType(juce::dsp::StateVariableTPTFilterType::highpass); break;
+            case 2: filter.setType(juce::dsp::StateVariableTPTFilterType::bandpass); break;
+            case 3: filter.setType(juce::dsp::StateVariableTPTFilterType::notch); break;
+        }
+    };
+
+    setFilterType(filter1, type1);
+    filter1.setCutoffFrequency(juce::jlimit(20.0f, 20000.0f, cutoff1));
+    filter1.setResonance(safeRes1);
+
+    setFilterType(filter2, type2);
+    filter2.setCutoffFrequency(juce::jlimit(20.0f, 20000.0f, cutoff2));
+    filter2.setResonance(safeRes2);
+
+    for (int sample = 0; sample < numSamples; ++sample)
+    {
+        for (int ch = 0; ch < totalNumOutputChannels; ++ch)
+        {
+            float* channelData = buffer.getWritePointer(ch);
+            float x = channelData[sample];
+
+            x = filter1.processSample(ch, x);
+
+            if (drive1 > 1.0f)
+            {
+                x *= drive1;
+                if (x > 0.0f)
+                    x = std::tanh(x);
+                else
+                    x = std::atan(x * 1.2f) / 1.2f;
+            }
+
+            x = filter2.processSample(ch, x);
+
+            if (drive2 > 1.0f)
+            {
+                x *= drive2;
+                x = juce::jlimit(-0.95f, 0.95f, x);
+            }
+
+            channelData[sample] = x;
+        }
+    }
+
+    // ==========================================
+    // SEZIONE EFFETTI (DELAY & REVERB)
+    // ==========================================
     auto* fxMixPtr = apvts.getRawParameterValue("fxMix");
     float fxMix = (fxMixPtr != nullptr) ? fxMixPtr->load() : 0.2f;
     fxMix = juce::jlimit(0.0f, 1.0f, fxMix);
@@ -164,46 +229,42 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     
         if (currentSampleRate > 0)
         {
-        delayModule.setDelay(juce::jlimit(0.0f, 2.0f, delaySecs) * currentSampleRate);
+            delayModule.setDelay(juce::jlimit(0.0f, 2.0f, delaySecs) * currentSampleRate);
         }
 
         auto* feedbackPtr = apvts.getRawParameterValue("delayFeedback");
         float feedback = (feedbackPtr != nullptr) ? juce::jlimit(0.0f, 0.95f, feedbackPtr->load()) : 0.5f;
-
-        int numSamples = buffer.getNumSamples();
 
         for (int sample = 0; sample < numSamples; ++sample)
         {
             for (int ch = 0; ch < totalNumOutputChannels; ++ch)
             {
                 float inputSample = buffer.getReadPointer(ch)[sample];
-            
-                // Ottieni il campione ritardato dal modulo
                 float delayedSample = delayModule.popSample(ch);
-            
-                // Spingi nel delay il campione attuale sommato al feedback di quello precedente
+                
                 delayModule.pushSample(ch, inputSample + (delayedSample * feedback));
-            
-                // Somma l'effetto wet direttamente nel buffer principale in base al mix
                 buffer.getWritePointer(ch)[sample] += delayedSample * fxMix;
             }
         }
 
-    // Gestione Riverbero (applicato sul buffer globale per ambiente finale)
-    auto* reverbSizePtr = apvts.getRawParameterValue("reverbSize");
-    reverbParameters.roomSize = (reverbSizePtr != nullptr) ? juce::jlimit(0.0f, 1.0f, reverbSizePtr->load()) : 0.5f;
-    reverbParameters.wetLevel = fxMix * 0.5f; // Evitiamo che il riverbero anneghi tutto
-    reverbParameters.dryLevel = 1.0f;
-    reverbModule.setParameters(reverbParameters);
-    
-    juce::dsp::AudioBlock<float> mainBlock(buffer);
-    juce::dsp::ProcessContextReplacing<float> mainContext(mainBlock);
-    reverbModule.process(mainContext);
-}
+        // Riverbero applicato dopo il delay
+        auto* reverbSizePtr = apvts.getRawParameterValue("reverbSize");
+        reverbParameters.roomSize = (reverbSizePtr != nullptr) ? juce::jlimit(0.0f, 1.0f, reverbSizePtr->load()) : 0.5f;
+        reverbParameters.wetLevel = fxMix * 0.5f; 
+        reverbParameters.dryLevel = 1.0f;
+        reverbModule.setParameters(reverbParameters);
+        
+        juce::dsp::AudioBlock<float> mainBlock(buffer);
+        juce::dsp::ProcessContextReplacing<float> mainContext(mainBlock);
+        reverbModule.process(mainContext);
+    }
 
+    // ==========================================
+    // MASTER VOLUME FINALE
+    // ==========================================
     auto* masterGainPtr = apvts.getRawParameterValue("masterVolume");
     float masterGain = (masterGainPtr != nullptr) ? masterGainPtr->load() : 0.8f;
-    buffer.applyGain(juce::jlimit(0.0f, 1.0f, masterGain));
+   buffer.applyGain(juce::jlimit(0.0f, 1.0f, masterGain));
 }
 
 juce::AudioProcessorEditor* SambucaAudioProcessor::createEditor()
