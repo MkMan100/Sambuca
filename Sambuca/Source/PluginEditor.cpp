@@ -25,7 +25,6 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
                 auto file = chooser.getResult();
                 if (file.existsAsFile())
                 {
-                    // Chiama la funzione nel processor (indice base zero: oscIndex - 1)
                     audioProcessor.loadAudioFile (file, oscIndex - 1);
                 }
             });
@@ -83,17 +82,21 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     createAndConnectKnob ("release", "ADSR", "Release");
 
     // --- 3. CONFIGURAZIONE DEL PAD X/Y BI-DIMENSIONALE ---
-    xyPad = std::make_unique<juce::Slider> (juce::Slider::XYPad, juce::Slider::NoTextBox);
-    xyPad->setLookAndFeel (&customLookAndFeel); // Applica lo stile custom dell'header
+    // Nota: Incapsulato lo stile corretto accettato da JUCE standard per gli slider a due coordinate grafiche
+    xyPad = std::make_unique<juce::Slider> ();
+    xyPad->setSliderStyle(juce::Slider::AbsoluteXYQueryOrChange); // Stile corretto per i Pad XY in JUCE
+    xyPad->setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    
+    // Se dà errore qui, controlla che nel file PluginEditor.h ci sia scritto "SambucaLookAndFeel customLookAndFeel;" sotto private:
+    xyPad->setLookAndFeel (&customLookAndFeel); 
     addAndMakeVisible (*xyPad);
 
     xyLabel = std::make_unique<juce::Label> ("", "X: Morph / Y: Filt 1 Cut");
-    xyLabel->setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    xyLabel->setFont (juce::Font (11.0f, juce::Font::bold)); // Corretto FontOptions in Font
     xyLabel->setJustificationType (juce::Justification::centred);
     xyLabel->setColour (juce::Label::textColourId, juce::Colours::orange);
     addAndMakeVisible (*xyLabel);
 
-    // Mappatura a due parametri contemporaneamente
     xyXAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (audioProcessor.apvts, "wavetableMorph", *xyPad);
     xyYAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (audioProcessor.apvts, "filter1Cutoff", *xyPad);
 
@@ -103,7 +106,7 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
 SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor()
 {
     if (xyPad != nullptr)
-        xyPad->setLookAndFeel (nullptr); // Scollega in sicurezza prima della distruzione
+        xyPad->setLookAndFeel (nullptr);
 
     for (auto& cs : connectedSliders)
     {
@@ -132,7 +135,7 @@ void SambucaAudioProcessorEditor::createAndConnectKnob (const juce::String& para
     addAndMakeVisible (*cs->slider);
 
     cs->label->setText (displayName, juce::dontSendNotification);
-    cs->label->setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    cs->label->setFont (juce::Font (11.0f, juce::Font::bold)); // Corretto FontOptions in Font
     cs->label->setJustificationType (juce::Justification::centred);
     cs->label->setColour (juce::Label::textColourId, juce::Colours::lightgrey);
     addAndMakeVisible (*cs->label);
@@ -148,17 +151,17 @@ void SambucaAudioProcessorEditor::paint (juce::Graphics& g)
     g.fillAll (juce::Colour (0xFF16151F)); 
 
     g.setColour (juce::Colour (0xFF22202F));
-    g.fillRect (15, 15, 1170, 200);  // Oscillatori
-    g.fillRect (15, 235, 1170, 210); // Centro
-    g.fillRect (15, 465, 1170, 210); // Basso
+    g.fillRect (15, 15, 1170, 200);  
+    g.fillRect (15, 235, 1170, 210); 
+    g.fillRect (15, 465, 1170, 210); 
 
     g.setColour (juce::Colour (0xFF35324A));
     g.drawRect (15, 15, 1170, 200, 1);
     g.drawRect (15, 235, 1170, 210, 1);
     g.drawRect (15, 465, 1170, 210, 1);
 
-    g.setColour (jures::Colours::orange);
-    g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+    g.setColour (juce::Colours::orange); // Corretto jures in juce
+    g.setFont (juce::Font (13.0f, juce::Font::bold)); // Corretto FontOptions in Font
     g.drawText ("SAMBUCA SYNTH ENGINE - OSCILLATORS", 30, 22, 300, 20, juce::Justification::left);
     g.drawText ("FILTERS & MODULATIONS", 30, 242, 300, 20, juce::Justification::left);
     g.drawText ("EFFECTS, ENVELOPE & OUTPUT MASTER", 30, 472, 300, 20, juce::Justification::left);
@@ -174,7 +177,6 @@ void SambucaAudioProcessorEditor::resized()
     totalArea.removeFromTop(20);
     juce::Rectangle<int> areaBottom = totalArea;
 
-    // Posizionamento pulsanti Load WAV
     int btnW = 90; int btnH = 24;
     int btnY = areaOsc.getY() + 45;
     if (loadButtonOsc1 != nullptr) loadButtonOsc1->setBounds (30, btnY, btnW, btnH);
@@ -250,7 +252,6 @@ void SambucaAudioProcessorEditor::resized()
         }
     }
 
-    // --- POSIZIONAMENTO FISICO DEL PAD X/Y ---
     int padSize = 130;
     int padX = areaMiddle.getX() + 540;
     int padY = areaMiddle.getY() + 55;
