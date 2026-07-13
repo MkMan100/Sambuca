@@ -84,6 +84,7 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
 
     // --- 3. CONFIGURAZIONE DEL PAD X/Y BI-DIMENSIONALE ---
     xyPad = std::make_unique<juce::Slider> (juce::Slider::XYPad, juce::Slider::NoTextBox);
+    xyPad->setLookAndFeel (&customLookAndFeel); // Applica lo stile custom dell'header
     addAndMakeVisible (*xyPad);
 
     xyLabel = std::make_unique<juce::Label> ("", "X: Morph / Y: Filt 1 Cut");
@@ -101,6 +102,9 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
 
 SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor()
 {
+    if (xyPad != nullptr)
+        xyPad->setLookAndFeel (nullptr); // Scollega in sicurezza prima della distruzione
+
     for (auto& cs : connectedSliders)
     {
         if (cs != nullptr && cs->slider != nullptr)
@@ -153,7 +157,7 @@ void SambucaAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawRect (15, 235, 1170, 210, 1);
     g.drawRect (15, 465, 1170, 210, 1);
 
-    g.setColour (juce::Colours::orange);
+    g.setColour (jures::Colours::orange);
     g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
     g.drawText ("SAMBUCA SYNTH ENGINE - OSCILLATORS", 30, 22, 300, 20, juce::Justification::left);
     g.drawText ("FILTERS & MODULATIONS", 30, 242, 300, 20, juce::Justification::left);
@@ -205,7 +209,6 @@ void SambucaAudioProcessorEditor::resized()
         }
         else if (cs->section == "LFO")
         {
-            // Spostiamo gli LFO più a destra per fare spazio al Pad X/Y al centro
             int lfoNumber = lfoIdx / 3; 
             int paramIdx  = lfoIdx % 3;
             int xPos = areaMiddle.getX() + 720 + (lfoNumber * 150) + (paramIdx * 50);
@@ -247,7 +250,7 @@ void SambucaAudioProcessorEditor::resized()
         }
     }
 
-    // --- POSIZIONAMENTO FISICO DEL PAD X/Y (Al centro esatto della riga mediana) ---
+    // --- POSIZIONAMENTO FISICO DEL PAD X/Y ---
     int padSize = 130;
     int padX = areaMiddle.getX() + 540;
     int padY = areaMiddle.getY() + 55;
