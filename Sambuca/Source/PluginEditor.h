@@ -2,7 +2,17 @@
 #include <juce_audio_processors/juce_audio_processors.h> 
 #include "PluginProcessor.h"
 
-// Componente Oscilloscopio Grafico a 30 FPS class OscilloscopeComponent : public juce::Component, public juce::Timer { public: OscilloscopeComponent (SambucaAudioProcessor& p) : processor (p) { startTimerHz (30); } ~OscilloscopeComponent() override { stopTimer(); }
+// Componente Oscilloscopio Grafico a 30 FPS 
+class OscilloscopeComponent : public juce::Component, public juce::Timer 
+    { 
+        public: OscilloscopeComponent (SambucaAudioProcessor& p) : processor (p) 
+        { 
+            startTimerHz (30); 
+        } 
+        ~OscilloscopeComponent() override 
+    {     
+    stopTimer(); 
+}
 
 void paint (juce::Graphics& g) override
 {
@@ -40,7 +50,11 @@ void timerCallback() override
 }
 private: SambucaAudioProcessor& processor; };
 
-// Editor principale a pagina unica (senza tab) class SambucaAudioProcessorEditor : public juce::AudioProcessorEditor { public: SambucaAudioProcessorEditor (SambucaAudioProcessor&); ~SambucaAudioProcessorEditor() override;
+// Editor principale a pagina unica (senza tab) 
+class SambucaAudioProcessorEditor : public juce::AudioProcessorEditor 
+{ 
+    public: SambucaAudioProcessorEditor (SambucaAudioProcessor&); 
+    ~SambucaAudioProcessorEditor() override;
 
 void paint (juce::Graphics&) override;
 void resized() override;
