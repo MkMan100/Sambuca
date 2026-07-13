@@ -58,7 +58,7 @@ public:
     // Implementazione inline del Pad X/Y con reticolo e cursore arancione
     void drawXYPad (juce::Graphics& g, int x, int y, int width, int height,
                     juce::Point<float> currentPosition,
-                    juce::Slider& slider) override
+                    juce::Slider& slider);
     {
         // Sfondo del Pad (Riquadro interno scuro antiriflesso)
         auto bounds = juce::Rectangle<int> (x, y, width, height).toFloat();
