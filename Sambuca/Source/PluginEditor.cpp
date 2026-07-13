@@ -1,6 +1,5 @@
-═══════════════════════════════════════════ FILE 2 di 2 — PluginEditor.cpp Sostituisci l'intero file con questo: ═══════════════════════════════════════════
-
-#include "PluginProcessor.h" #include "PluginEditor.h"
+#include "PluginProcessor.h" 
+#include "PluginEditor.h"
 
 void SambucaAudioProcessorEditor::setupRotary (juce::Slider& s, juce::Label& l, const juce::String& text) { addAndMakeVisible (s); s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag); s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 55, 18); addAndMakeVisible (l); l.setText (text, juce::dontSendNotification); l.setJustificationType (juce::Justification::centred); }
 
