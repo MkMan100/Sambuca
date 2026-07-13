@@ -36,7 +36,10 @@ private:
     std::unique_ptr<juce::TextButton> loadButtonOsc3;
 
     std::unique_ptr<juce::FileChooser> fileChooser;
-    
+    std::unique_ptr<juce::Slider> xyPad;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> xyXAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> xyYAttachment;
+    std::unique_ptr<juce::Label> xyLabel;
     // Unica dichiarazione corretta e centralizzata per creare i knob automatizzati
     void createAndConnectKnob (const juce::String& parameterID, const juce::String& sectionName, const juce::String& displayName);
 
