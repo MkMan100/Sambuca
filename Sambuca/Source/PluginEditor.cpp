@@ -84,7 +84,7 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     // --- 3. CONFIGURAZIONE DEL PAD X/Y BI-DIMENSIONALE ---
     // Nota: Incapsulato lo stile corretto accettato da JUCE standard per gli slider a due coordinate grafiche
     xyPad = std::make_unique<juce::Slider> ();
-    xyPad->setSliderStyle(juce::Slider::AbsoluteXYQueryOrChange); // Stile corretto per i Pad XY in JUCE
+    xyPad->setMouseDragMode (juce::Slider::AbsoluteDrag); // Corretto: -> invece del punto
     xyPad->setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
     
     // Se dà errore qui, controlla che nel file PluginEditor.h ci sia scritto "SambucaLookAndFeel customLookAndFeel;" sotto private:
