@@ -68,7 +68,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SambucaAudioProcessor::creat
     for (int i = 1; i <= 2; ++i)
     {
         juce::String prefix = "filter" + juce::String(i);
-        params.push_back(std::make_unique<juce::AudioParameterChoice>(prefix + "Type", "Filter " + juce::String(i) + " Type", juce::StringArray{"Lowpass", "Highpass", "Bandpass", "Notch"}, 0));
+        params.push_back(std::make_unique<juce::AudioParameterChoice>(prefix + "Type", "Filter " + juce::String(i) + " Type", juce::StringArray{"Lowpass", "Highpass", "Bandpass"}, 0));
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Cutoff", "Filter " + juce::String(i) + " Cutoff", 20.0f, 20000.0f, 1000.0f));
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Resonance", "Filter " + juce::String(i) + " Resonance", 0.1f, 3.5f, 1.0f));
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Drive", "Filter " + juce::String(i) + " Drive", 1.0f, 5.0f, 1.0f));
@@ -174,12 +174,13 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     float safeRes2 = juce::jlimit(0.1f, 2.5f / (drive2 * 0.5f + 1.0f), res2);
 
     auto setFilterType = [](auto& filter, int type) {
-        switch (type) {
-            case 0: filter.setType(juce::dsp::StateVariableTPTFilterType::lowpass); break;
-            case 1: filter.setType(juce::dsp::StateVariableTPTFilterType::highpass); break;
-            case 2: filter.setType(juce::dsp::StateVariableTPTFilterType::bandpass); break;
-            case 3: filter.setType(juce::dsp::StateVariableTPTFilterType::notch); break;
-        }
+        switch (filterTypeIndex)
+            {
+                case 0: filter.setType (juce::dsp::StateVariableTPTFilterType::lowpass);  break;
+                case 1: filter.setType (juce::dsp::StateVariableTPTFilterType::highpass); break;
+                case 2: filter.setType (juce::dsp::StateVariableTPTFilterType::bandpass); break;
+                default: filter.setType (juce::dsp::StateVariableTPTFilterType::lowpass);  break;
+            }
     };
 
     setFilterType(filter1, type1);
