@@ -98,32 +98,37 @@ void SambucaAudioProcessor::loadAudioFile (const juce::File& file, int oscIndex)
     }
 }
 
-void SambucaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void SambucaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock) { currentSampleRate = sampleRate;
+
+juce::dsp::ProcessSpec spec;
+spec.sampleRate = sampleRate;
+spec.maximumBlockSize = samplesPerBlock;
+spec.numChannels = getTotalNumOutputChannels();
+
+filter1.prepare(spec);
+filter2.prepare(spec);
+
+lfo1.prepare(spec);
+lfo2.prepare(spec);
+lfo3.prepare(spec);
+
+lfo1.initialise([](float x) { return std::sin(x); });
+lfo2.initialise([](float x) { return std::sin(x); });
+lfo3.initialise([](float x) { return std::sin(x); });
+
+delayModule.prepare(spec);
+reverbModule.prepare(spec);
+
+delayBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock);
+
+mySynth.setCurrentPlaybackSampleRate (sampleRate);
+
+for (int i = 0; i < mySynth.getNumVoices(); ++i)
 {
-    currentSampleRate = sampleRate;
-
-    juce::dsp::ProcessSpec spec;
-    spec.sampleRate = sampleRate;
-    spec.maximumBlockSize = samplesPerBlock;
-    spec.numChannels = getTotalNumOutputChannels();
-
-    filter1.prepare(spec);
-    filter2.prepare(spec);
-    
-    lfo1.prepare(spec);
-    lfo2.prepare(spec);
-    lfo3.prepare(spec);
-    
-    lfo1.initialise([](float x) { return std::sin(x); });
-    lfo2.initialise([](float x) { return std::sin(x); });
-    lfo3.initialise([](float x) { return std::sin(x); });
-
-    delayModule.prepare(spec);
-    reverbModule.prepare(spec);
-    
-    delayBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock);
+    if (auto* voice = dynamic_cast<SynthVoice*> (mySynth.getVoice(i)))
+        voice->prepareToPlay (sampleRate, samplesPerBlock, getTotalNumOutputChannels());
 }
-
+}
 void SambucaAudioProcessor::releaseResources() {}
 
 void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
