@@ -313,7 +313,7 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     tabbedComponent.addTab ("LFOs", juce::Colours::transparentBlack, lfoPanel.get(), false);
     tabbedComponent.addTab ("FX & Master", juce::Colours::transparentBlack, fxMasterPanel.get(), false);
     
-    tabbedComponent.setTabBarPosition (juce::TabbedButtonBar::TabsAtTop);
+    
     tabbedComponent.setCurrentTabIndex (0);
 }
 
