@@ -178,7 +178,7 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
             case 0: filter.setType(juce::dsp::StateVariableTPTFilterType::lowpass); break;
             case 1: filter.setType(juce::dsp::StateVariableTPTFilterType::highpass); break;
             case 2: filter.setType(juce::dsp::StateVariableTPTFilterType::bandpass); break;
-            case 3: filter.setType(juce::dsp::StateVariableTPTFilterType::bandPassNotch); break;
+            case 3: filter.setType(juce::dsp::StateVariableTPTFilterType::notch); break;
         }
     };
 
