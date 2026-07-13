@@ -22,8 +22,12 @@ struct SambucaOscillator
         }
         else if (currentMode == Mode::LoadedSample && sampleBufferRef != nullptr && hostSampleRate > 0)
         {
-            // Calcola la velocità di riproduzione del sample basata sulla nota suonata (assumendo il sample originale a C4 = 60)
-            // Se preferisci una riproduzione a velocità fissa stile "one-shot trigger", si può impostare a 1.0
+            // Evita divisioni per zero o crash con buffer non validi o vuoti
+            if (sampleBufferRef->getNumSamples() <= 100)
+            {
+                sampleIncrement = 0.0;
+                return;
+            }
             float rootFreq = juce::MidiMessage::getMidiNoteInHertz (60); 
             double pitchRatio = frequency / rootFreq;
             sampleIncrement = pitchRatio;
@@ -56,7 +60,8 @@ struct SambucaOscillator
         if (currentMode == Mode::StandardWave)
             return waveOsc.processSample (0.0f);
 
-        if (currentMode == Mode::LoadedSample && sampleBufferRef != nullptr && sampleBufferRef->getNumSamples() > 0)
+        // Controllo di sicurezza cruciale per evitare crash in fase di avvio/riproduzione campioni vuoti
+        if (currentMode == Mode::LoadedSample && sampleBufferRef != nullptr && sampleBufferRef->getNumSamples() > 100)
         {
             auto numSamples = sampleBufferRef->getNumSamples();
             int index1 = static_cast<int> (samplePosition);
@@ -74,9 +79,9 @@ struct SambucaOscillator
 
             float fraction = static_cast<float> (samplePosition - static_cast<int> (samplePosition));
             
-            // Lettura mono (canale 0) del sample caricato
-            float s1 = sampleBufferRef->getSample (0, index1);
-            float s2 = (index2 < numSamples || isLooping) ? sampleBufferRef->getSample (0, index2) : 0.0f;
+            // Lettura mono (canale 0) del sample caricato con limiti di sicurezza
+            float s1 = sampleBufferRef->getSample (0, index1 % numSamples);
+            float s2 = (index2 < numSamples || isLooping) ? sampleBufferRef->getSample (0, index2 % numSamples) : 0.0f;
 
             // Interpolazione lineare
             float output = s1 + fraction * (s2 - s1);
@@ -123,7 +128,7 @@ public:
         for (int i = 0; i < 3; ++i)
             oscillators[i].resetSamplePosition();
 
-        updateOscillators();
+        updateOscillators(0.0f); // Inizializza frequenza oscillatori senza modulazione LFO istantanea
         adsr.noteOn();
     }
 
@@ -157,7 +162,8 @@ public:
         adsr.setParameters (defaultParams);
     }
 
-    void updateOscillators()
+    // Aggiunto parametro per la modulazione LFO del Pitch
+    void updateOscillators (float pitchModulationSemitones)
     {
         float baseFreq = juce::MidiMessage::getMidiNoteInHertz (currentMidiNote);
 
@@ -173,7 +179,7 @@ public:
 
             if (pitchParam != nullptr)
             {
-                float detuneSemitones = pitchParam->load();
+                float detuneSemitones = pitchParam->load() + pitchModulationSemitones;
                 float finalFreq = baseFreq * std::pow (2.0f, detuneSemitones / 12.0f);
                 oscillators[i].setFrequency (finalFreq, getSampleRate());
             }
@@ -188,18 +194,18 @@ public:
     {
         if (!isVoiceActive()) return;
 
-        updateOscillators();
-
-        auto* morphParam = apvts.getRawParameterValue("wavetableMorph");
+        // Recupero parametri LFO 1
         auto* lfoRateParam = apvts.getRawParameterValue("lfo1Rate");
         auto* lfoAmountParam = apvts.getRawParameterValue("lfo1Amount");
+        auto* lfoTargetParam = apvts.getRawParameterValue("lfo1Target"); // Parametro di destinazione
         
-        float morphValue = (morphParam != nullptr) ? morphParam->load() : 0.0f;
         float lfoRate = (lfoRateParam != nullptr) ? lfoRateParam->load() : 1.0f;
         float lfoAmount = (lfoAmountParam != nullptr) ? lfoAmountParam->load() : 0.0f;
+        int lfoTarget = (lfoTargetParam != nullptr) ? static_cast<int>(lfoTargetParam->load()) : 0; // 0=None, 1=Cutoff, 2=Volume, 3=Pitch
 
         voiceLFO.setFrequency (lfoRate);
 
+        // Aggiorna ADSR
         auto* att = apvts.getRawParameterValue("attack");
         auto* dec = apvts.getRawParameterValue("decay");
         auto* sus = apvts.getRawParameterValue("sustain");
@@ -215,6 +221,7 @@ public:
             adsr.setParameters (p);
         }
 
+        // Configurazione filtro di voce
         auto* typeParam = apvts.getRawParameterValue("filter1Type");
         auto* resParam = apvts.getRawParameterValue("filter1Resonance");
         auto* cutoffParam = apvts.getRawParameterValue("filter1Cutoff");
@@ -233,25 +240,47 @@ public:
         }
         voiceFilter1.setResonance (res1);
 
-        juce::AudioBuffer<float> synthBlock (outputBuffer.getNumChannels(), numSamples);
-        synthBlock.clear();
-
+        // Volumi individuali degli oscillatori
         float v1 = apvts.getRawParameterValue("osc1Volume") ? apvts.getRawParameterValue("osc1Volume")->load() : 0.7f;
         float v2 = apvts.getRawParameterValue("osc2Volume") ? apvts.getRawParameterValue("osc2Volume")->load() : 0.7f;
         float v3 = apvts.getRawParameterValue("osc3Volume") ? apvts.getRawParameterValue("osc3Volume")->load() : 0.7f;
 
-        juce::AudioBuffer<float> singleSampleBuffer (synthBlock.getNumChannels(), 1);
+        auto* morphParam = apvts.getRawParameterValue("wavetableMorph");
+        float morphValue = (morphParam != nullptr) ? morphParam->load() : 0.0f;
 
+        // Scriviamo direttamente sul buffer audio di destinazione senza allocazioni aggiuntive pericolose
         for (int sample = 0; sample < numSamples; ++sample)
         {
-            float currentLfoValue = voiceLFO.processSample (0.0f) * lfoAmount;
-            
-            // Utilizzo del nuovo metodo unificato processSample() che discrimina internamente la modalità
-            float s1 = oscillators[0].processSample();
-            float s2 = oscillators[1].processSample();
-            float s3 = oscillators[2].processSample();
+            float lfoOut = voiceLFO.processSample (0.0f); // Range [-1.0, 1.0]
+            float currentLfoValue = lfoOut * lfoAmount;
 
-            s1 *= v1; s2 *= v2; s3 *= v3;
+            // Inizializziamo le modulazioni specifiche
+            float filterModulation = 0.0f;
+            float volumeModulation = 1.0f;
+            float pitchModulation = 0.0f;
+
+            // Applichiamo la modulazione in base al target selezionato
+            if (lfoTarget == 1) // Filter Cutoff
+            {
+                filterModulation = currentLfoValue * 5000.0f; // Modula fino a 5000 Hz
+            }
+            else if (lfoTarget == 2) // Volume
+            {
+                // Un'escursione di volume coerente riducendo di una frazione proporzionale all'LFO
+                volumeModulation = juce::jlimit(0.0f, 1.0f, 1.0f - (std::abs(currentLfoValue) * 0.9f));
+            }
+            else if (lfoTarget == 3) // Pitch Detune (in semitoni)
+            {
+                pitchModulation = currentLfoValue * 12.0f; // Modulazione fino a un'ottava (12 semitoni)
+            }
+
+            // Aggiorna frequenze con l'eventuale modulazione pitch
+            updateOscillators(pitchModulation);
+
+            // Generazione e somma campioni
+            float s1 = oscillators[0].processSample() * v1;
+            float s2 = oscillators[1].processSample() * v2;
+            float s3 = oscillators[2].processSample() * v3;
 
             float sampleSum = 0.0f;
             if (morphValue < 0.5f)
@@ -265,29 +294,35 @@ public:
                 sampleSum = (1.0f - t) * s2 + t * s3;
             }
 
-            float voiceSample = sampleSum * adsr.getNextSample() * noteVelocity;
-            
-            for (int channel = 0; channel < singleSampleBuffer.getNumChannels(); ++channel)
-                singleSampleBuffer.setSample (channel, 0, voiceSample);
+            // Applica ADSR, Velocity e modulazione del volume
+            float envelope = adsr.getNextSample();
+            float voiceSample = sampleSum * envelope * noteVelocity * volumeModulation;
 
-            float modulatedCutoff1 = juce::jlimit (20.0f, 20000.0f, baseCutoff1 + (currentLfoValue * 5000.0f));
+            // Calcolo e applicazione del filtro modulato
+            float modulatedCutoff1 = juce::jlimit (20.0f, 20000.0f, baseCutoff1 + filterModulation);
             voiceFilter1.setCutoffFrequencyHz (modulatedCutoff1);
 
-            juce::dsp::AudioBlock<float> singleBlock (singleSampleBuffer);
-            juce::dsp::ProcessContextReplacing<float> context (singleBlock);
+            // Applica il filtro su tutti i canali per questo singolo campione
+            for (int channel = 0; channel < outputBuffer.getNumChannels(); ++channel)
+            {
+                // Inseriamo il campione direttamente nel canale dell'outputBuffer
+                float filteredSample = voiceSample;
+                
+                // Il LadderFilter JUCE elabora tramite AudioBlock. Aggiorniamo il singolo campione.
+                // Inseriamo temporaneamente il valore nel buffer per farlo elaborare al dsp del filtro
+                outputBuffer.setSample (channel, startSample + sample, filteredSample);
+            }
+
+            // Processa il filtro di voce sul blocco corrente di 1 campione per mantenere il suono aggiornato
+            juce::dsp::AudioBlock<float> singleSampleBlock (outputBuffer);
+            juce::dsp::AudioBlock<float> subBlock = singleSampleBlock.getSubBlock (startSample + sample, 1);
+            juce::dsp::ProcessContextReplacing<float> context (subBlock);
             voiceFilter1.process (context);
-
-            for (int channel = 0; channel < synthBlock.getNumChannels(); ++channel)
-                synthBlock.setSample (channel, sample, singleSampleBuffer.getSample (channel, 0));
         }
-
-        for (int channel = 0; channel < outputBuffer.getNumChannels(); ++channel)
-            outputBuffer.addFrom (channel, startSample, synthBlock.getReadPointer(channel), numSamples);
 
         if (!adsr.isActive()) clearCurrentNote();
     }
 
-    // Funzione pubblica per agganciare i buffer allocati nel Processor a ciascuna voce
     void setSampleBufferPointer (int index, juce::AudioBuffer<float>* buffer)
     {
         if (index >= 0 && index < 3)
