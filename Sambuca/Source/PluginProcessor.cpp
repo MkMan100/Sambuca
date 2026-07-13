@@ -114,7 +114,7 @@ void SambucaAudioProcessor::loadAudioFile (const juce::File& file, int oscIndex)
 
 void SambucaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    currentSampleRate = sampleRate; // Salva il sample rate corrente se serve altrove
+    currentSampleRate = sampleRate;
 
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
@@ -160,37 +160,45 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 
     auto numSamples = buffer.getNumSamples();
 
+    // --- Lettura parametri Filter 1 ---
     auto type1 = static_cast<int>(apvts.getRawParameterValue("filter1Type")->load());
     auto cutoff1 = apvts.getRawParameterValue("filter1Cutoff")->load();
     auto res1 = apvts.getRawParameterValue("filter1Resonance")->load();
     auto drive1 = apvts.getRawParameterValue("filter1Drive")->load();
 
+    // --- Lettura parametri Filter 2 ---
     auto type2 = static_cast<int>(apvts.getRawParameterValue("filter2Type")->load());
     auto cutoff2 = apvts.getRawParameterValue("filter2Cutoff")->load();
     auto res2 = apvts.getRawParameterValue("filter2Resonance")->load();
     auto drive2 = apvts.getRawParameterValue("filter2Drive")->load();
 
+    // Limitazione di sicurezza risonanza in base al drive
     float safeRes1 = juce::jlimit(0.1f, 2.5f / (drive1 * 0.5f + 1.0f), res1);
     float safeRes2 = juce::jlimit(0.1f, 2.5f / (drive2 * 0.5f + 1.0f), res2);
 
-    auto setFilterType = [](auto& filter, int type) {
-        switch (filterTypeIndex)
-            {
-                case 0: filter.setType (juce::dsp::StateVariableTPTFilterType::lowpass);  break;
-                case 1: filter.setType (juce::dsp::StateVariableTPTFilterType::highpass); break;
-                case 2: filter.setType (juce::dsp::StateVariableTPTFilterType::bandpass); break;
-                default: filter.setType (juce::dsp::StateVariableTPTFilterType::lowpass);  break;
-            }
-    };
-
-    setFilterType(filter1, type1);
+    // --- Configurazione Filtro 1 ---
+    switch (type1)
+    {
+        case 0:  filter1.setType (juce::dsp::StateVariableTPTFilterType::lowpass);  break;
+        case 1:  filter1.setType (juce::dsp::StateVariableTPTFilterType::highpass); break;
+        case 2:  filter1.setType (juce::dsp::StateVariableTPTFilterType::bandpass); break;
+        default: filter1.setType (juce::dsp::StateVariableTPTFilterType::lowpass);  break;
+    }
     filter1.setCutoffFrequency(juce::jlimit(20.0f, 20000.0f, cutoff1));
     filter1.setResonance(safeRes1);
 
-    setFilterType(filter2, type2);
+    // --- Configurazione Filtro 2 ---
+    switch (type2)
+    {
+        case 0:  filter2.setType (juce::dsp::StateVariableTPTFilterType::lowpass);  break;
+        case 1:  filter2.setType (juce::dsp::StateVariableTPTFilterType::highpass); break;
+        case 2:  filter2.setType (juce::dsp::StateVariableTPTFilterType::bandpass); break;
+        default: filter2.setType (juce::dsp::StateVariableTPTFilterType::lowpass);  break;
+    }
     filter2.setCutoffFrequency(juce::jlimit(20.0f, 20000.0f, cutoff2));
     filter2.setResonance(safeRes2);
 
+    // --- Elaborazione Audio (Filtri + Drive) ---
     for (int sample = 0; sample < numSamples; ++sample)
     {
         for (int ch = 0; ch < totalNumOutputChannels; ++ch)
@@ -221,6 +229,7 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         }
     }
 
+    // --- Effetti (Delay & Reverb) ---
     auto* fxMixPtr = apvts.getRawParameterValue("fxMix");
     float fxMix = (fxMixPtr != nullptr) ? fxMixPtr->load() : 0.2f;
     fxMix = juce::jlimit(0.0f, 1.0f, fxMix);
@@ -261,6 +270,7 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         reverbModule.process(mainContext);
     }
 
+    // --- Controllo Volume Master ---
     auto* masterGainPtr = apvts.getRawParameterValue("masterVolume");
     float masterGain = (masterGainPtr != nullptr) ? masterGainPtr->load() : 0.8f;
     buffer.applyGain(juce::jlimit(0.0f, 1.0f, masterGain));
