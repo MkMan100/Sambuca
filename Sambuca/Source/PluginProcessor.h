@@ -1,7 +1,6 @@
 #pragma once
-
 #include <juce_audio_processors/juce_audio_processors.h>
-#include <juce_dsp/juce_dsp.h> // Incluso per i filtri ed effetti dsp
+#include <juce_dsp/juce_dsp.h>
 #include "SynthVoice.h"
 
 class SambucaAudioProcessor  : public juce::AudioProcessor
@@ -25,48 +24,45 @@ public:
 
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
-    void setCurrentProgram (int index) override {}
-    const juce::String getProgramName (int index) override { return {}; }
-    void changeProgramName (int index, const juce::String& newName) override {}
+    void setCurrentProgram (int) override {}
+    const juce::String getProgramName (int) override { return {}; }
+    void changeProgramName (int, const juce::String&) override {}
 
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    // Metodo pubblico per permettere all'Editor (GUI) di caricare un file audio
-    void loadAudioFile (const juce::File& file, int oscillatorIndex);
+    void loadAudioFile (const juce::File& file, int oscIndex);
 
-    // Funzione helper obbligatoria per inizializzare l'albero dei parametri (APVTS)
-    juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
-    
-    // Oggetto pubblico APVTS a cui l'Editor si collegherà per muovere i Knob
     juce::AudioProcessorValueTreeState apvts;
 
+    // --- Coda circolare per l'oscilloscopio ---
+    static constexpr int fftSize = 512;
+    float visualizerBuffer[fftSize] = { 0.0f };
+    int visualizerWriteIndex = 0;
+    std::atomic<bool> hasNewSourceData { false };
+
 private:
+    juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+
     juce::Synthesiser mySynth;
-    const int numVoices = 8; 
+    const int numVoices = 8;
 
     juce::AudioFormatManager formatManager;
     juce::AudioBuffer<float> loadedSampleBuffers[3];
 
-    // --- NUOVI COMPONENTI DSP (Stile Absynth) ---
-    
-    // 2 Filtri di stato variabili (SVF) in cascata
     juce::dsp::StateVariableTPTFilter<float> filter1;
     juce::dsp::StateVariableTPTFilter<float> filter2;
 
-    // 3 LFO Generici basati su oscillatori DSP
     juce::dsp::Oscillator<float> lfo1;
     juce::dsp::Oscillator<float> lfo2;
     juce::dsp::Oscillator<float> lfo3;
 
-    // Effetti di Spazio/Tempo
-    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayModule;
+    juce::dsp::DelayLine<float> delayModule;
     juce::dsp::Reverb reverbModule;
     juce::dsp::Reverb::Parameters reverbParameters;
 
-    // Variabili di supporto per la conversione e il campionamento dell'effetto Delay
-    double currentSampleRate = 44100.0;
     juce::AudioBuffer<float> delayBuffer;
+    double currentSampleRate = 44100.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SambucaAudioProcessor)
 };
