@@ -16,21 +16,84 @@ struct SambucaOscillator
     
     void setFrequency (float frequency, double hostSampleRate)
     {
-        if (currentMode == Mode::StandardWave) waveOsc.setFrequency (frequency);
+        if (currentMode == Mode::StandardWave) 
+        {
+            waveOsc.setFrequency (frequency);
+        }
+        else if (currentMode == Mode::LoadedSample && sampleBufferRef != nullptr && hostSampleRate > 0)
+        {
+            // Calcola la velocità di riproduzione del sample basata sulla nota suonata (assumendo il sample originale a C4 = 60)
+            // Se preferisci una riproduzione a velocità fissa stile "one-shot trigger", si può impostare a 1.0
+            float rootFreq = juce::MidiMessage::getMidiNoteInHertz (60); 
+            double pitchRatio = frequency / rootFreq;
+            sampleIncrement = pitchRatio;
+        }
     }
 
     void setWaveform (int type)
     {
-        if (currentMode != Mode::StandardWave) return;
-
-        switch (type)
+        // Convenzione parametri: 0:Sine, 1:Saw, 2:Square, 3:Wavetable, 4:Sample, 5:Noise
+        if (type == 3 || type == 4)
         {
-            case 0: waveOsc.initialise ([] (float x) { return std::sin (x); }); break; // Sine
-            case 1: waveOsc.initialise ([] (float x) { return x / juce::MathConstants<float>::pi; }); break; // Saw
-            case 2: waveOsc.initialise ([] (float x) { return x < 0.0f ? -1.0f : 1.0f; }); break; // Square
-            case 5: waveOsc.initialise ([] (float x) { return ((float)rand() / RAND_MAX) * 2.0f - 1.0f; }); break; // Noise
-            default: waveOsc.initialise ([] (float x) { return std::sin (x); }); break;
+            currentMode = Mode::LoadedSample;
         }
+        else
+        {
+            currentMode = Mode::StandardWave;
+            switch (type)
+            {
+                case 0: waveOsc.initialise ([] (float x) { return std::sin (x); }); break; // Sine
+                case 1: waveOsc.initialise ([] (float x) { return x / juce::MathConstants<float>::pi; }); break; // Saw
+                case 2: waveOsc.initialise ([] (float x) { return x < 0.0f ? -1.0f : 1.0f; }); break; // Square
+                case 5: waveOsc.initialise ([] (float x) { return ((float)rand() / RAND_MAX) * 2.0f - 1.0f; }); break; // Noise
+                default: waveOsc.initialise ([] (float x) { return std::sin (x); }); break;
+            }
+        }
+    }
+
+    float processSample()
+    {
+        if (currentMode == Mode::StandardWave)
+            return waveOsc.processSample (0.0f);
+
+        if (currentMode == Mode::LoadedSample && sampleBufferRef != nullptr && sampleBufferRef->getNumSamples() > 0)
+        {
+            auto numSamples = sampleBufferRef->getNumSamples();
+            int index1 = static_cast<int> (samplePosition);
+            int index2 = index1 + 1;
+
+            if (isLooping)
+            {
+                index1 %= numSamples;
+                index2 %= numSamples;
+            }
+            else if (index1 >= numSamples)
+            {
+                return 0.0f;
+            }
+
+            float fraction = static_cast<float> (samplePosition - static_cast<int> (samplePosition));
+            
+            // Lettura mono (canale 0) del sample caricato
+            float s1 = sampleBufferRef->getSample (0, index1);
+            float s2 = (index2 < numSamples || isLooping) ? sampleBufferRef->getSample (0, index2) : 0.0f;
+
+            // Interpolazione lineare
+            float output = s1 + fraction * (s2 - s1);
+
+            samplePosition += sampleIncrement;
+            if (isLooping && samplePosition >= numSamples)
+                samplePosition = std::fmod (samplePosition, static_cast<double> (numSamples));
+
+            return output;
+        }
+
+        return 0.0f;
+    }
+
+    void resetSamplePosition()
+    {
+        samplePosition = 0.0;
     }
 };
 
@@ -56,6 +119,10 @@ public:
     {
         noteVelocity = velocity;
         currentMidiNote = midiNoteNumber;
+        
+        for (int i = 0; i < 3; ++i)
+            oscillators[i].resetSamplePosition();
+
         updateOscillators();
         adsr.noteOn();
     }
@@ -179,9 +246,10 @@ public:
         {
             float currentLfoValue = voiceLFO.processSample (0.0f) * lfoAmount;
             
-            float s1 = (oscillators[0].currentMode == SambucaOscillator::Mode::StandardWave) ? oscillators[0].waveOsc.processSample (0.0f) : 0.0f;
-            float s2 = (oscillators[1].currentMode == SambucaOscillator::Mode::StandardWave) ? oscillators[1].waveOsc.processSample (0.0f) : 0.0f;
-            float s3 = (oscillators[2].currentMode == SambucaOscillator::Mode::StandardWave) ? oscillators[2].waveOsc.processSample (0.0f) : 0.0f;
+            // Utilizzo del nuovo metodo unificato processSample() che discrimina internamente la modalità
+            float s1 = oscillators[0].processSample();
+            float s2 = oscillators[1].processSample();
+            float s3 = oscillators[2].processSample();
 
             s1 *= v1; s2 *= v2; s3 *= v3;
 
@@ -217,6 +285,13 @@ public:
             outputBuffer.addFrom (channel, startSample, synthBlock.getReadPointer(channel), numSamples);
 
         if (!adsr.isActive()) clearCurrentNote();
+    }
+
+    // Funzione pubblica per agganciare i buffer allocati nel Processor a ciascuna voce
+    void setSampleBufferPointer (int index, juce::AudioBuffer<float>* buffer)
+    {
+        if (index >= 0 && index < 3)
+            oscillators[index].sampleBufferRef = buffer;
     }
 
 private:
