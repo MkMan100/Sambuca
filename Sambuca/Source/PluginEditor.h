@@ -1,10 +1,56 @@
 #pragma once
-
-#include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
-#include "CustomLookAndFeel.h"
 
+// --- Componente Oscilloscopio Grafico a 30 FPS ---
+class OscilloscopeComponent : public juce::Component, public juce::Timer
+{
+public:
+    OscilloscopeComponent (SambucaAudioProcessor& p) : processor (p) { startTimerHz (30); }
+    ~OscilloscopeComponent() override { stopTimer(); }
+
+    void paint (juce::Graphics& g) override
+    {
+        g.fillAll (juce::Colour (0xFF11101A));
+        g.setColour (juce::Colour (0xFF35324A));
+        g.drawRect (getLocalBounds(), 2);
+
+        g.setColour (juce::Colours::orange);
+        juce::Path wavePath;
+
+        auto width = (float)getWidth();
+        auto height = (float)getHeight();
+        auto midY = height / 2.0f;
+
+        wavePath.startNewSubPath (0.0f, midY);
+
+        int totalSamples = SambucaAudioProcessor::fftSize;
+        float scaleX = width / (float)totalSamples;
+        
+        for (int i = 0; i < totalSamples; ++i)
+        {
+            float sample = processor.visualizerBuffer[i] * 0.9f; 
+            float x = (float)i * scaleX;
+            float y = midY - (sample * midY);
+            wavePath.lineTo (x, juce::jlimit (0.0f, height, y));
+        }
+        g.strokePath (wavePath, juce::PathStrokeType (1.5f));
+    }
+
+    void timerCallback() override
+    {
+        if (processor.hasNewSourceData)
+        {
+            processor.hasNewSourceData = false;
+            repaint();
+        }
+    }
+
+private:
+    SambucaAudioProcessor& processor;
+};
+
+// --- Editor principale ---
 class SambucaAudioProcessorEditor  : public juce::AudioProcessorEditor
 {
 public:
@@ -16,33 +62,32 @@ public:
 
 private:
     SambucaAudioProcessor& audioProcessor;
-    SambucaLookAndFeel sambucaLookAndFeel;
-    SambucaLookAndFeel customLookAndFeel;
 
-    struct ConnectedSlider
-    {
-        std::unique_ptr<juce::Slider> slider;
-        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
-        std::unique_ptr<juce::Label> label; 
-        juce::String section; 
-        juce::String cleanName;             
-    };
+    // Oscilloscopio
+    OscilloscopeComponent oscilloscope;
 
-    std::vector<std::unique_ptr<ConnectedSlider>> connectedSliders;
-    juce::Image backgroundImage;
+    // Sliders
+    juce::Slider wavetableMorphSlider;
+    juce::Slider filterCutoffSlider;
+    juce::Slider lfoRateSlider;
+    juce::Slider lfoAmountSlider;
 
-    // Pulsanti per il caricamento dei file WAV per i 3 oscillatori
-    std::unique_ptr<juce::TextButton> loadButtonOsc1;
-    std::unique_ptr<juce::TextButton> loadButtonOsc2;
-    std::unique_ptr<juce::TextButton> loadButtonOsc3;
+    // Etichette di Testo
+    juce::Label morphLabel;
+    juce::Label cutoffLabel;
+    juce::Label lfoRateLabel;
+    juce::Label lfoAmountLabel;
+    juce::Label lfoTargetLabel;
 
-    std::unique_ptr<juce::FileChooser> fileChooser;
-    std::unique_ptr<juce::Slider> xyPad;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> xyXAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> xyYAttachment;
-    std::unique_ptr<juce::Label> xyLabel;
-    // Unica dichiarazione corretta e centralizzata per creare i knob automatizzati
-    void createAndConnectKnob (const juce::String& parameterID, const juce::String& sectionName, const juce::String& displayName);
+    // Selettore Target LFO
+    juce::ComboBox lfoTargetComboBox;
+
+    // Allegati APVTS per sincronizzazione stabile
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> morphAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> cutoffAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> lfoRateAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> lfoAmountAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> lfoTargetAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SambucaAudioProcessorEditor)
 };
