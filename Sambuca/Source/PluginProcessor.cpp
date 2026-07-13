@@ -1,7 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-// Funzione di utilità interna per scrivere i log sul Desktop senza bloccare i thread
 void writeDebugLog(const juce::String& message)
 {
     juce::File logFile = juce::File::getSpecialLocation(juce::File::userDesktopDirectory).getChildFile("sambuca_debug.txt");
@@ -9,44 +8,32 @@ void writeDebugLog(const juce::String& message)
 }
 
 SambucaAudioProcessor::SambucaAudioProcessor()
-#ifndef JucePlugin_PreferredChannelConfigurations
-     : AudioProcessor (BusesProperties()
-                     #if ! JucePlugin_IsMidiEffect
-                      #if ! JucePlugin_IsSynth
-                       .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                      #endif
-                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                     #endif
-                       ),
-#endif
-        apvts(*this, nullptr, "Parameters", createParameterLayout())
+    : AudioProcessor (BusesProperties()
+                      .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
+                      .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+      apvts(*this, nullptr, "Parameters", createParameterLayout())
 {
     formatManager.registerBasicFormats();
 
-    // Inizializzazione di sicurezza dei 3 buffer
     for (int i = 0; i < 3; ++i)
     {
         loadedSampleBuffers[i].setSize (2, 100);
         loadedSampleBuffers[i].clear();
     }
 
-    // Inizializzazione standard
     mySynth.clearVoices();
     for (int i = 0; i < numVoices; ++i)
     {
         auto* voice = new SynthVoice (apvts);
-        
         for (int oscIdx = 0; oscIdx < 3; ++oscIdx)
         {
             voice->setSampleBufferPointer (oscIdx, &loadedSampleBuffers[oscIdx]);
         }
-        
         mySynth.addVoice (voice); 
     }
 
     mySynth.clearSounds();
     mySynth.addSound (new SynthSound());
-
     delayModule.setMaximumDelayInSamples(384000);
 }
 
@@ -80,6 +67,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SambucaAudioProcessor::creat
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Rate", "LFO " + juce::String(i) + " Rate", 0.1f, 20.0f, 1.0f));
         params.push_back(std::make_unique<juce::AudioParameterChoice>(prefix + "Waveform", "LFO " + juce::String(i) + " Waveform", juce::StringArray{"Sine", "Triangle", "Saw", "Random"}, 0));
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Amount", "LFO " + juce::String(i) + " Amount", 0.0f, 1.0f, 0.5f));
+        params.push_back(std::make_unique<juce::AudioParameterChoice>(prefix + "Target", "LFO " + juce::String(i) + " Target", juce::StringArray{"None", "Filter Cutoff", "Osc Volume", "Osc Pitch"}, 0));
     }
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>("attack", "Attack", 0.001f, 5.0f, 0.1f));
@@ -102,9 +90,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SambucaAudioProcessor::creat
 void SambucaAudioProcessor::loadAudioFile (const juce::File& file, int oscIndex)
 {
     if (oscIndex < 0 || oscIndex >= 3) return;
-
     std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (file));
-
     if (reader != nullptr)
     {
         loadedSampleBuffers[oscIndex].setSize ((int) reader->numChannels, (int) reader->lengthInSamples);
@@ -136,19 +122,12 @@ void SambucaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
     reverbModule.prepare(spec);
     
     delayBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock);
-    writeDebugLog("[prepareToPlay] Configurazione completata con successo");
 }
 
 void SambucaAudioProcessor::releaseResources() {}
 
 void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    static bool hasLoggedProcess = false;
-    if (!hasLoggedProcess) {
-        writeDebugLog("[processBlock] Entrato nel ciclo audio principale");
-        hasLoggedProcess = true;
-    }
-
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
@@ -160,23 +139,19 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 
     auto numSamples = buffer.getNumSamples();
 
-    // --- Lettura parametri Filter 1 ---
     auto type1 = static_cast<int>(apvts.getRawParameterValue("filter1Type")->load());
     auto cutoff1 = apvts.getRawParameterValue("filter1Cutoff")->load();
     auto res1 = apvts.getRawParameterValue("filter1Resonance")->load();
     auto drive1 = apvts.getRawParameterValue("filter1Drive")->load();
 
-    // --- Lettura parametri Filter 2 ---
     auto type2 = static_cast<int>(apvts.getRawParameterValue("filter2Type")->load());
     auto cutoff2 = apvts.getRawParameterValue("filter2Cutoff")->load();
     auto res2 = apvts.getRawParameterValue("filter2Resonance")->load();
     auto drive2 = apvts.getRawParameterValue("filter2Drive")->load();
 
-    // Limitazione di sicurezza risonanza in base al drive
     float safeRes1 = juce::jlimit(0.1f, 2.5f / (drive1 * 0.5f + 1.0f), res1);
     float safeRes2 = juce::jlimit(0.1f, 2.5f / (drive2 * 0.5f + 1.0f), res2);
 
-    // --- Configurazione Filtro 1 ---
     switch (type1)
     {
         case 0:  filter1.setType (juce::dsp::StateVariableTPTFilterType::lowpass);  break;
@@ -187,7 +162,6 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     filter1.setCutoffFrequency(juce::jlimit(20.0f, 20000.0f, cutoff1));
     filter1.setResonance(safeRes1);
 
-    // --- Configurazione Filtro 2 ---
     switch (type2)
     {
         case 0:  filter2.setType (juce::dsp::StateVariableTPTFilterType::lowpass);  break;
@@ -198,7 +172,6 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     filter2.setCutoffFrequency(juce::jlimit(20.0f, 20000.0f, cutoff2));
     filter2.setResonance(safeRes2);
 
-    // --- Elaborazione Audio (Filtri + Drive) ---
     for (int sample = 0; sample < numSamples; ++sample)
     {
         for (int ch = 0; ch < totalNumOutputChannels; ++ch)
@@ -211,10 +184,8 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
             if (drive1 > 1.0f)
             {
                 x *= drive1;
-                if (x > 0.0f)
-                    x = std::tanh(x);
-                else
-                    x = std::atan(x * 1.2f) / 1.2f;
+                if (x > 0.0f) x = std::tanh(x);
+                else          x = std::atan(x * 1.2f) / 1.2f;
             }
 
             x = filter2.processSample(ch, x);
@@ -229,7 +200,6 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         }
     }
 
-    // --- Effetti (Delay & Reverb) ---
     auto* fxMixPtr = apvts.getRawParameterValue("fxMix");
     float fxMix = (fxMixPtr != nullptr) ? fxMixPtr->load() : 0.2f;
     fxMix = juce::jlimit(0.0f, 1.0f, fxMix);
@@ -240,9 +210,7 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         float delaySecs = (delayTimePtr != nullptr) ? delayTimePtr->load() : 0.3f;
         
         if (currentSampleRate > 0)
-        {
             delayModule.setDelay(juce::jlimit(0.0f, 2.0f, delaySecs) * currentSampleRate);
-        }
 
         auto* feedbackPtr = apvts.getRawParameterValue("delayFeedback");
         float feedback = (feedbackPtr != nullptr) ? juce::jlimit(0.0f, 0.95f, feedbackPtr->load()) : 0.5f;
@@ -270,32 +238,30 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         reverbModule.process(mainContext);
     }
 
-    // --- Controllo Volume Master ---
     auto* masterGainPtr = apvts.getRawParameterValue("masterVolume");
     float masterGain = (masterGainPtr != nullptr) ? masterGainPtr->load() : 0.8f;
     buffer.applyGain(juce::jlimit(0.0f, 1.0f, masterGain));
+
+    // Scrittura sicura dei campioni nell'oscilloscopio
+    for (int i = 0; i < numSamples; ++i)
+    {
+        visualizerBuffer[visualizerWriteIndex] = buffer.getSample(0, i);
+        visualizerWriteIndex = (visualizerWriteIndex + 1) % fftSize;
+    }
+    hasNewSourceData = true;
 }
 
-juce::AudioProcessorEditor* SambucaAudioProcessor::createEditor()
-{
-    return new SambucaAudioProcessorEditor (*this);
-}
-
+juce::AudioProcessorEditor* SambucaAudioProcessor::createEditor() { return new SambucaAudioProcessorEditor (*this); }
 void SambucaAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
     copyXmlToBinary (*xml, destData);
 }
-
 void SambucaAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
     if (xmlState.get() != nullptr && xmlState->hasTagName (apvts.state.getType()))
         apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
 }
-
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
-{
-    return new SambucaAudioProcessor();
-}
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new SambucaAudioProcessor(); }
