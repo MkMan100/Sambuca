@@ -100,19 +100,22 @@ juce::AudioProcessorValueTreeState::ParameterLayout SambucaAudioProcessor::creat
     return { params.begin(), params.end() };
 }
 
-void SambucaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void SambucaAudioProcessor::loadAudioFile (const juce::File& file, int oscIndex)
 {
-    writeDebugLog("[prepareToPlay] Configurazione motore DSP avviata");
-    currentSampleRate = sampleRate;
-    mySynth.setCurrentPlaybackSampleRate (sampleRate);
+    if (oscIndex < 0 || oscIndex >= 3) return;
 
-    for (int i = 0; i < mySynth.getNumVoices(); ++i)
+    // Crea un reader per il file WAV/audio
+    std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (file));
+
+    if (reader != nullptr)
     {
-        if (auto* voice = dynamic_cast<SynthVoice*>(mySynth.getVoice(i)))
-        {
-            voice->prepareToPlay (sampleRate, samplesPerBlock, getTotalNumOutputChannels());
-        }
+        // Ridimensiona il buffer interno memorizzato nel Processor per ospitare i dati
+        loadedSampleBuffers[oscIndex].setSize ((int) reader->numChannels, (int) reader->lengthInSamples);
+        
+        // Leggi i sample dal file direttamente nel buffer associato all'oscillatore
+        reader->read (&loadedSampleBuffers[oscIndex], 0, (int) reader->lengthInSamples, 0, true, true);
     }
+}
 
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
