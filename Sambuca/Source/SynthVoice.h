@@ -148,18 +148,36 @@ public:
             adsr.setParameters (p);
         }
 
+        auto* typeParam = apvts.getRawParameterValue("filter1Type");
+        auto* resParam = apvts.getRawParameterValue("filter1Resonance");
+        auto* cutoffParam = apvts.getRawParameterValue("filter1Cutoff");
+        
+        int filterType = (typeParam != nullptr) ? static_cast<int>(typeParam->load()) : 0;
+        float res1 = (resParam != nullptr) ? resParam->load() : 1.0f;
+        float baseCutoff1 = (cutoffParam != nullptr) ? cutoffParam->load() : 1000.0f;
+
+        using FilterMode = typename juce::dsp::LadderFilter<float>::Mode;
+        switch (filterType)
+        {
+            case 0: voiceFilter1.setMode (static_cast<FilterMode> (0)); break; 
+            case 1: voiceFilter1.setMode (static_cast<FilterMode> (1)); break; 
+            case 2: voiceFilter1.setMode (static_cast<FilterMode> (2)); break; 
+            case 3: voiceFilter1.setMode (static_cast<FilterMode> (2)); break; 
+        }
+        voiceFilter1.setResonance (res1);
+
         juce::AudioBuffer<float> synthBlock (outputBuffer.getNumChannels(), numSamples);
         synthBlock.clear();
-        float lastLfoValue = 0.0f;
 
         float v1 = apvts.getRawParameterValue("osc1Volume") ? apvts.getRawParameterValue("osc1Volume")->load() : 0.7f;
         float v2 = apvts.getRawParameterValue("osc2Volume") ? apvts.getRawParameterValue("osc2Volume")->load() : 0.7f;
         float v3 = apvts.getRawParameterValue("osc3Volume") ? apvts.getRawParameterValue("osc3Volume")->load() : 0.7f;
 
+        juce::AudioBuffer<float> singleSampleBuffer (synthBlock.getNumChannels(), 1);
+
         for (int sample = 0; sample < numSamples; ++sample)
         {
-            lastLfoValue = voiceLFO.processSample (0.0f) * lfoAmount;
-            float sampleSum = 0.0f;
+            float currentLfoValue = voiceLFO.processSample (0.0f) * lfoAmount;
             
             float s1 = (oscillators[0].currentMode == SambucaOscillator::Mode::StandardWave) ? oscillators[0].waveOsc.processSample (0.0f) : 0.0f;
             float s2 = (oscillators[1].currentMode == SambucaOscillator::Mode::StandardWave) ? oscillators[1].waveOsc.processSample (0.0f) : 0.0f;
@@ -167,6 +185,7 @@ public:
 
             s1 *= v1; s2 *= v2; s3 *= v3;
 
+            float sampleSum = 0.0f;
             if (morphValue < 0.5f)
             {
                 float t = morphValue * 2.0f;
@@ -180,35 +199,19 @@ public:
 
             float voiceSample = sampleSum * adsr.getNextSample() * noteVelocity;
             
+            for (int channel = 0; channel < singleSampleBuffer.getNumChannels(); ++channel)
+                singleSampleBuffer.setSample (channel, 0, voiceSample);
+
+            float modulatedCutoff1 = juce::jlimit (20.0f, 20000.0f, baseCutoff1 + (currentLfoValue * 5000.0f));
+            voiceFilter1.setCutoffFrequencyHz (modulatedCutoff1);
+
+            juce::dsp::AudioBlock<float> singleBlock (singleSampleBuffer);
+            juce::dsp::ProcessContextReplacing<float> context (singleBlock);
+            voiceFilter1.process (context);
+
             for (int channel = 0; channel < synthBlock.getNumChannels(); ++channel)
-                synthBlock.setSample (channel, sample, voiceSample);
+                synthBlock.setSample (channel, sample, singleSampleBuffer.getSample (channel, 0));
         }
-
-        auto* cutoffParam = apvts.getRawParameterValue("filter1Cutoff");
-        auto* resParam = apvts.getRawParameterValue("filter1Resonance");
-        auto* typeParam = apvts.getRawParameterValue("filter1Type");
-        
-        float baseCutoff1 = (cutoffParam != nullptr) ? cutoffParam->load() : 1000.0f;
-        float res1 = (resParam != nullptr) ? resParam->load() : 1.0f;
-        int filterType = (typeParam != nullptr) ? static_cast<int>(typeParam->load()) : 0;
-
-        using FilterMode = typename juce::dsp::LadderFilter<float>::Mode;
-        switch (filterType)
-        {
-            case 0: voiceFilter1.setMode (static_cast<FilterMode> (0)); break; 
-            case 1: voiceFilter1.setMode (static_cast<FilterMode> (1)); break; 
-            case 2: voiceFilter1.setMode (static_cast<FilterMode> (2)); break; 
-            case 3: voiceFilter1.setMode (static_cast<FilterMode> (2)); break; 
-        }
-        
-        float modulatedCutoff1 = juce::jlimit (20.0f, 20000.0f, baseCutoff1 + (lastLfoValue * 5000.0f));
-        
-        voiceFilter1.setCutoffFrequencyHz (modulatedCutoff1);
-        voiceFilter1.setResonance (res1);
-
-        juce::dsp::AudioBlock<float> block (synthBlock);
-        juce::dsp::ProcessContextReplacing<float> context (block);
-        voiceFilter1.process (context);
 
         for (int channel = 0; channel < outputBuffer.getNumChannels(); ++channel)
             outputBuffer.addFrom (channel, startSample, synthBlock.getReadPointer(channel), numSamples);
