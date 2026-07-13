@@ -1,9 +1,23 @@
 #include "PluginProcessor.h" 
 #include "PluginEditor.h"
 
-void SambucaAudioProcessorEditor::setupRotary (juce::Slider& s, juce::Label& l, const juce::String& text) { addAndMakeVisible (s); s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag); s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 55, 18); addAndMakeVisible (l); l.setText (text, juce::dontSendNotification); l.setJustificationType (juce::Justification::centred); }
+void SambucaAudioProcessorEditor::setupRotary (juce::Slider& s, juce::Label& l, const juce::String& text) 
+    { 
+        addAndMakeVisible (s);
+        s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
+        s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 55, 18);
+        addAndMakeVisible (l); l.setText (text, juce::dontSendNotification);
+        l.setJustificationType (juce::Justification::centred); 
+    }
 
-void SambucaAudioProcessorEditor::setupCombo (juce::ComboBox& c, const juce::StringArray& items, juce::Label& l, const juce::String& text) { addAndMakeVisible (c); c.addItemList (items, 1); addAndMakeVisible (l); l.setText (text, juce::dontSendNotification); l.setJustificationType (juce::Justification::centred); }
+void SambucaAudioProcessorEditor::setupCombo (juce::ComboBox& c, const juce::StringArray& items, juce::Label& l, const juce::String& text) 
+    { 
+        addAndMakeVisible (c);
+        c.addItemList (items, 1);
+        addAndMakeVisible (l);
+        l.setText (text, juce::dontSendNotification);
+        l.setJustificationType (juce::Justification::centred); 
+    }
 
 SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor& p) : AudioProcessorEditor (&p), audioProcessor (p), oscilloscope (p) { setSize (1000, 700); addAndMakeVisible (oscilloscope);
 
@@ -121,7 +135,15 @@ volAtt   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment
 
 SambucaAudioProcessorEditor::~SambucaAudioProcessorEditor() {}
 
-void SambucaAudioProcessorEditor::paint (juce::Graphics& g) { g.fillAll (juce::Colour (0xFF1A1926)); g.setColour (juce::Colour (0xFF35324A)); g.drawRect (logoArea, 1); g.setColour (juce::Colour (0xFF6A6580)); g.setFont (12.0f); g.drawText ("LOGO", logoArea, juce::Justification::centred); }
+void SambucaAudioProcessorEditor::paint (juce::Graphics& g) 
+{ 
+    g.fillAll (juce::Colour (0xFF1A1926)); 
+    g.setColour (juce::Colour (0xFF35324A)); 
+    g.drawRect (logoArea, 1); 
+    g.setColour (juce::Colour (0xFF6A6580)); 
+    g.setFont (12.0f); 
+    g.drawText ("LOGO", logoArea, juce::Justification::centred); 
+}
 
 void SambucaAudioProcessorEditor::resized() { auto area = getLocalBounds().reduced (10);
 
