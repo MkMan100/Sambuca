@@ -54,7 +54,9 @@ public:
         g.drawImage(knobGlow, rx, ry, rw, rw, 0, 0, knobGlow.getWidth(), knobGlow.getHeight());
         g.restoreState();
     }
-
+    void drawXYPad (juce::Graphics& g, int x, int y, int width, int height,
+                    juce::Point<float> currentPosition,
+                    juce::Slider& slider) override;
 private:
     juce::Image knobBase;
     juce::Image knobGlow;
