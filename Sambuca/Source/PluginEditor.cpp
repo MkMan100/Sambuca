@@ -106,5 +106,5 @@ void SambucaAudioProcessorEditor::resized()
     auto col5 = bottomArea;
     lfoTargetLabel.setBounds (col5.removeFromTop (20));
     // Centra il ComboBox verticalmente nella sua colonna
-    lfoTargetComboBox.setBounds (col5.withSizeKeepCentre (colWidth - 20, 30));
+    lfoTargetComboBox.setBounds (col5.withSizeKeepingCentre (colWidth - 20, 30));
 }
