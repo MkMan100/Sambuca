@@ -30,7 +30,7 @@ SambucaAudioProcessor::SambucaAudioProcessor()
         loadedSampleBuffers[i].clear();
     }
 
-    // Inizializzazione standard senza passare l'apvts se la voce non lo richiede nel costruttore base
+    // Inizializzazione standard
     mySynth.clearVoices();
     for (int i = 0; i < numVoices; ++i)
     {
@@ -82,7 +82,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout SambucaAudioProcessor::creat
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Amount", "LFO " + juce::String(i) + " Amount", 0.0f, 1.0f, 0.5f));
     }
 
-    // Iniezione Parametri ADSR (Evita i log di errore nell'Editor)
     params.push_back(std::make_unique<juce::AudioParameterFloat>("attack", "Attack", 0.001f, 5.0f, 0.1f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("decay", "Decay", 0.01f, 5.0f, 0.2f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>("sustain", "Sustain", 0.0f, 1.0f, 0.8f));
@@ -104,18 +103,18 @@ void SambucaAudioProcessor::loadAudioFile (const juce::File& file, int oscIndex)
 {
     if (oscIndex < 0 || oscIndex >= 3) return;
 
-    // Crea un reader per il file WAV/audio
     std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (file));
 
     if (reader != nullptr)
     {
-        // Ridimensiona il buffer interno memorizzato nel Processor per ospitare i dati
         loadedSampleBuffers[oscIndex].setSize ((int) reader->numChannels, (int) reader->lengthInSamples);
-        
-        // Leggi i sample dal file direttamente nel buffer associato all'oscillatore
         reader->read (&loadedSampleBuffers[oscIndex], 0, (int) reader->lengthInSamples, 0, true, true);
     }
 }
+
+void SambucaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+{
+    currentSampleRate = sampleRate; // Salva il sample rate corrente se serve altrove
 
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
@@ -157,12 +156,8 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    // 1. Generazione del suono dagli oscillatori del synth
     mySynth.renderNextBlock (buffer, midiMessages, 0, buffer.getNumSamples());
 
-    // ==========================================
-    // SEZIONE FILTRI E SATURAZIONE (SUPER FUZZ)
-    // ==========================================
     auto numSamples = buffer.getNumSamples();
 
     auto type1 = static_cast<int>(apvts.getRawParameterValue("filter1Type")->load());
@@ -225,9 +220,6 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         }
     }
 
-    // ==========================================
-    // SEZIONE EFFETTI (DELAY & REVERB)
-    // ==========================================
     auto* fxMixPtr = apvts.getRawParameterValue("fxMix");
     float fxMix = (fxMixPtr != nullptr) ? fxMixPtr->load() : 0.2f;
     fxMix = juce::jlimit(0.0f, 1.0f, fxMix);
@@ -236,7 +228,7 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     {
         auto* delayTimePtr = apvts.getRawParameterValue("delayTime");
         float delaySecs = (delayTimePtr != nullptr) ? delayTimePtr->load() : 0.3f;
-    
+        
         if (currentSampleRate > 0)
         {
             delayModule.setDelay(juce::jlimit(0.0f, 2.0f, delaySecs) * currentSampleRate);
@@ -257,7 +249,6 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
             }
         }
 
-        // Riverbero applicato dopo il delay
         auto* reverbSizePtr = apvts.getRawParameterValue("reverbSize");
         reverbParameters.roomSize = (reverbSizePtr != nullptr) ? juce::jlimit(0.0f, 1.0f, reverbSizePtr->load()) : 0.5f;
         reverbParameters.wetLevel = fxMix * 0.5f; 
@@ -269,30 +260,14 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
         reverbModule.process(mainContext);
     }
 
-    // ==========================================
-    // MASTER VOLUME FINALE
-    // ==========================================
     auto* masterGainPtr = apvts.getRawParameterValue("masterVolume");
     float masterGain = (masterGainPtr != nullptr) ? masterGainPtr->load() : 0.8f;
-   buffer.applyGain(juce::jlimit(0.0f, 1.0f, masterGain));
+    buffer.applyGain(juce::jlimit(0.0f, 1.0f, masterGain));
 }
 
 juce::AudioProcessorEditor* SambucaAudioProcessor::createEditor()
 {
     return new SambucaAudioProcessorEditor (*this);
-}
-
-void SambucaAudioProcessor::loadAudioFile (const juce::File& file, int oscillatorIndex)
-{
-    if (oscillatorIndex < 0 || oscillatorIndex >= 3) return;
-
-    auto* reader = formatManager.createReaderFor (file);
-    if (reader != nullptr)
-    {
-        loadedSampleBuffers[oscillatorIndex].setSize (1, static_cast<int>(reader->lengthInSamples));
-        reader->read (&loadedSampleBuffers[oscillatorIndex], 0, static_cast<int>(reader->lengthInSamples), 0, true, false);
-        delete reader;
-    }
 }
 
 void SambucaAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
