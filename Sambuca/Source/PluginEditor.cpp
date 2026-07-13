@@ -18,7 +18,6 @@ void SambucaAudioProcessorEditor::setupCombo (juce::ComboBox& c, const juce::Str
         l.setText (text, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred); 
     }
-
 SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor& p) : AudioProcessorEditor (&p), audioProcessor (p), oscilloscope (p) { setSize (1000, 700); addAndMakeVisible (oscilloscope);
 
 auto makeSection = [this](juce::Label& l, const juce::String& text) {
