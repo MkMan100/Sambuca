@@ -1,6 +1,11 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+// Questi include sono INDISPENSABILI qui nel file .cpp per permettere
+// al compilatore di vedere la struttura di SynthVoice e SynthSound
+#include "SynthVoice.h"
+#include "SynthSound.h"
+
 void writeDebugLog(const juce::String& message)
 {
     juce::File logFile = juce::File::getSpecialLocation(juce::File::userDesktopDirectory).getChildFile("sambuca_debug.txt");
@@ -299,5 +304,4 @@ void SambucaAudioProcessor::setStateInformation (const void* data, int sizeInByt
         apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
 }
 
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new SambucaAudioProcessor(); 
-}
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new SambucaAudioProcessor(); }
