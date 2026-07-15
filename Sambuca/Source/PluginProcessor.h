@@ -1,91 +1,89 @@
 #pragma once
 
-#include <juce_audio_processors/juce_audio_processors.h>
-#include <juce_audio_formats/juce_audio_formats.h>
-#include <juce_dsp/juce_dsp.h>
+#include <JuceHeader.h>
 
-// Definizione delle classi di supporto per il synth
-class SynthSound : public juce::SynthesiserSound
-{
-public:
-    SynthSound() {}
-    bool appliesToNote (int) override { return true; }
-    bool appliesToChannel (int) override { return true; }
-};
+// Forward declarations per evitare problemi di inclusione circolare
+class SynthVoice;
+class SynthSound;
 
-class SynthVoice : public juce::SynthesiserVoice
-{
-public:
-    SynthVoice (juce::AudioProcessorValueTreeState& state) : apvts (state) {}
-    bool canPlaySound (juce::SynthesiserSound*) override { return true; }
-    void startNote (int, float, juce::SynthesiserSound*, int) override {}
-    void stopNote (float, bool) override {}
-    void pitchWheelMoved (int) override {}
-    void controllerMoved (int, int) override {}
-    void renderNextBlock (juce::AudioBuffer<float>&, int, int) override {}
-    void prepareToPlay (double, int, int) {}
-    void setSampleBufferPointer (int, juce::AudioBuffer<float>*) {}
-private:
-    juce::AudioProcessorValueTreeState& apvts;
-};
-
-// ==============================================================================
 class SambucaAudioProcessor  : public juce::AudioProcessor
 {
 public:
+    // ==============================================================================
     SambucaAudioProcessor();
     ~SambucaAudioProcessor() override;
 
+    // ==============================================================================
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
+
+   #ifndef JucePlugin_PreferredChannelConfigurations
+    bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
+   #endif
+
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
+    // ==============================================================================
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
 
+    // ==============================================================================
     const juce::String getName() const override { return JucePlugin_Name; }
+
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
     double getTailLengthSeconds() const override { return 0.0; }
 
+    // ==============================================================================
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
-    void setCurrentProgram (int) override {}
-    const juce::String getProgramName (int) override { return {}; }
-    void changeProgramName (int, const juce::String&) override {}
+    void setCurrentProgram (int index) override {}
+    const juce::String getProgramName (int index) override { return {}; }
+    void changeProgramName (int index, const juce::String& newName) override {}
 
+    // ==============================================================================
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    // Metodo dichiarato esattamente come implementato nel tuo cpp
+    // Metodi di caricamento audio richiamati dall'Editor
     void loadAudioFile (const juce::File& file, int oscIndex);
+    void loadSample (int oscIndex, const juce::File& file);
 
+    // Layout dei parametri
+    static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::AudioProcessorValueTreeState apvts;
 
-    // Gestione dell'oscilloscopio
+    // Variabili per l'oscilloscopio accessibili dall'Editor
     static constexpr int fftSize = 1024;
     float visualizerBuffer[fftSize] = { 0.0f };
     int visualizerWriteIndex = 0;
-    std::atomic<bool> hasNewSourceData { false };
+    bool hasNewSourceData = false;
 
 private:
-    juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
-
-    double currentSampleRate = 44100.0;
+    // Sintetizzatore e Voci (usiamo std::unique_ptr o puntatori diretti gestiti da Synthesiser)
+    juce::Synthesiser mySynth;
     static constexpr int numVoices = 8;
 
-    juce::Synthesiser mySynth;
-    juce::AudioFormatManager formatManager;
+    // Buffer dei sample per gli oscillatori
     juce::AudioBuffer<float> loadedSampleBuffers[3];
+    juce::AudioFormatManager formatManager;
 
-    juce::dsp::StateVariableTPTFilter<float> filter1, filter2;
-    juce::dsp::Oscillator<float> lfo1, lfo2, lfo3;
+    // DSP Engine
+    double currentSampleRate = 44100.0;
+    
+    juce::dsp::StateVariableTPTFilter<float> filter1;
+    juce::dsp::StateVariableTPTFilter<float> filter2;
+
+    juce::dsp::Oscillator<float> lfo1;
+    juce::dsp::Oscillator<float> lfo2;
+    juce::dsp::Oscillator<float> lfo3;
+
     juce::dsp::DelayLine<float> delayModule;
-    juce::dsp::Reverb reverbModule;
-    juce::Reverb::Parameters reverbParameters;
     juce::AudioBuffer<float> delayBuffer;
 
-    JUDER_MEMBER_POINTERS;
+    juce::dsp::Reverb reverbModule;
+    juce::dsp::Reverb::Parameters reverbParameters;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SambucaAudioProcessor)
 };
