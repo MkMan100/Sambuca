@@ -4,7 +4,6 @@
 // Questi include sono INDISPENSABILI qui nel file .cpp per permettere
 // al compilatore di vedere la struttura di SynthVoice e SynthSound
 #include "SynthVoice.h"
-#include "SynthSound.h"
 
 void writeDebugLog(const juce::String& message)
 {
