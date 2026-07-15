@@ -1,8 +1,35 @@
 #pragma once
-#include <juce_audio_processors/juce_audio_processors.h>
-#include <juce_dsp/juce_dsp.h>
-#include "SynthVoice.h"
 
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_audio_formats/juce_audio_formats.h>
+#include <juce_dsp/juce_dsp.h>
+
+// Definizione delle classi di supporto per il synth
+class SynthSound : public juce::SynthesiserSound
+{
+public:
+    SynthSound() {}
+    bool appliesToNote (int) override { return true; }
+    bool appliesToChannel (int) override { return true; }
+};
+
+class SynthVoice : public juce::SynthesiserVoice
+{
+public:
+    SynthVoice (juce::AudioProcessorValueTreeState& state) : apvts (state) {}
+    bool canPlaySound (juce::SynthesiserSound*) override { return true; }
+    void startNote (int, float, juce::SynthesiserSound*, int) override {}
+    void stopNote (float, bool) override {}
+    void pitchWheelMoved (int) override {}
+    void controllerMoved (int, int) override {}
+    void renderNextBlock (juce::AudioBuffer<float>&, int, int) override {}
+    void prepareToPlay (double, int, int) {}
+    void setSampleBufferPointer (int, juce::AudioBuffer<float>*) {}
+private:
+    juce::AudioProcessorValueTreeState& apvts;
+};
+
+// ==============================================================================
 class SambucaAudioProcessor  : public juce::AudioProcessor
 {
 public:
@@ -31,39 +58,34 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    // Metodo dichiarato esattamente come implementato nel tuo cpp
     void loadAudioFile (const juce::File& file, int oscIndex);
-    void loadSample (int oscIndex, const juce::File& sampleFile);
+
     juce::AudioProcessorValueTreeState apvts;
 
-    // --- Coda circolare per l'oscilloscopio ---
-    static constexpr int fftSize = 512;
+    // Gestione dell'oscilloscopio
+    static constexpr int fftSize = 1024;
     float visualizerBuffer[fftSize] = { 0.0f };
     int visualizerWriteIndex = 0;
     std::atomic<bool> hasNewSourceData { false };
-    
 
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-    juce::Synthesiser mySynth;
-    const int numVoices = 8;
+    double currentSampleRate = 44100.0;
+    static constexpr int numVoices = 8;
 
+    juce::Synthesiser mySynth;
     juce::AudioFormatManager formatManager;
     juce::AudioBuffer<float> loadedSampleBuffers[3];
 
-    juce::dsp::StateVariableTPTFilter<float> filter1;
-    juce::dsp::StateVariableTPTFilter<float> filter2;
-
-    juce::dsp::Oscillator<float> lfo1;
-    juce::dsp::Oscillator<float> lfo2;
-    juce::dsp::Oscillator<float> lfo3;
-
+    juce::dsp::StateVariableTPTFilter<float> filter1, filter2;
+    juce::dsp::Oscillator<float> lfo1, lfo2, lfo3;
     juce::dsp::DelayLine<float> delayModule;
     juce::dsp::Reverb reverbModule;
-    juce::dsp::Reverb::Parameters reverbParameters;
-
+    juce::Reverb::Parameters reverbParameters;
     juce::AudioBuffer<float> delayBuffer;
-    double currentSampleRate = 44100.0;
 
+    JUDER_MEMBER_POINTERS
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SambucaAudioProcessor)
 };
