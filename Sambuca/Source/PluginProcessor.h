@@ -1,8 +1,11 @@
 #pragma once
 
-#include <JuceHeader.h>
+// Sostituiamo <JuceHeader.h> con le inclusioni dirette dei moduli JUCE richiesti
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_audio_formats/juce_audio_formats.h>
+#include <juce_dsp/juce_dsp.h>
 
-// Forward declarations per evitare problemi di inclusione circolare
 class SynthVoice;
 class SynthSound;
 
@@ -61,7 +64,7 @@ public:
     bool hasNewSourceData = false;
 
 private:
-    // Sintetizzatore e Voci (usiamo std::unique_ptr o puntatori diretti gestiti da Synthesiser)
+    // Sintetizzatore e Voci
     juce::Synthesiser mySynth;
     static constexpr int numVoices = 8;
 
