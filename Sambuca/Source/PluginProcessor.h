@@ -86,6 +86,6 @@ private:
     juce::Reverb::Parameters reverbParameters;
     juce::AudioBuffer<float> delayBuffer;
 
-    JUDER_MEMBER_POINTERS
+    JUDER_MEMBER_POINTERS;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SambucaAudioProcessor)
 };
