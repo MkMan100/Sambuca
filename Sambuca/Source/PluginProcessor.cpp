@@ -21,7 +21,7 @@ SambucaAudioProcessor::SambucaAudioProcessor()
         loadedSampleBuffers[i].clear();
     }
 
-    // Polifonia garantita delegando a numVoices (assicurati che in .h sia es. 8 o 16)
+    // Polifonia garantita delegando a numVoices
     mySynth.clearVoices();
     for (int i = 0; i < numVoices; ++i)
     {
@@ -39,6 +39,20 @@ SambucaAudioProcessor::SambucaAudioProcessor()
 }
 
 SambucaAudioProcessor::~SambucaAudioProcessor() {}
+
+#ifndef JucePlugin_PreferredChannelConfigurations
+bool SambucaAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+{
+    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
+     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+        return false;
+
+    if (layouts.getMainInputChannelSet() != layouts.getMainOutputChannelSet())
+        return false;
+
+    return true;
+}
+#endif
 
 juce::AudioProcessorValueTreeState::ParameterLayout SambucaAudioProcessor::createParameterLayout()
 {
@@ -58,9 +72,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SambucaAudioProcessor::creat
         juce::String prefix = "filter" + juce::String(i);
         params.push_back(std::make_unique<juce::AudioParameterChoice>(prefix + "Type", "Filter " + juce::String(i) + " Type", juce::StringArray{"Lowpass", "Highpass", "Bandpass"}, 0));
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Cutoff", "Filter " + juce::String(i) + " Cutoff", 20.0f, 20000.0f, 1000.0f));
-        // Alzata la risonanza massima a 5.0f per risonanze più estreme e aggressive
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Resonance", "Filter " + juce::String(i) + " Resonance", 0.1f, 5.0f, 1.0f));
-        // Aumentato il range del Drive per spingere l'effetto Fuzz
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Drive", "Filter " + juce::String(i) + " Drive", 1.0f, 15.0f, 1.0f));
     }
 
@@ -99,6 +111,12 @@ void SambucaAudioProcessor::loadAudioFile (const juce::File& file, int oscIndex)
         loadedSampleBuffers[oscIndex].setSize ((int) reader->numChannels, (int) reader->lengthInSamples);
         reader->read (&loadedSampleBuffers[oscIndex], 0, (int) reader->lengthInSamples, 0, true, true);
     }
+}
+
+// Chiamata esposta per l'editor che fa da wrapper di compatibilità
+void SambucaAudioProcessor::loadSample (int oscIndex, const juce::File& file)
+{
+    loadAudioFile (file, oscIndex);
 }
 
 void SambucaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock) 
@@ -146,10 +164,6 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    // Aggiorna gli LFO prima di renderizzare la sintesi per permettere la modulazione coerente delle voci
-    // Nota: L'avanzamento degli LFO deve avvenire qui o dentro SynthVoice. 
-    // Per semplicità, assicurati che SynthVoice legga i parametri APVTS aggiornati.
-
     mySynth.renderNextBlock (buffer, midiMessages, 0, buffer.getNumSamples());
 
     auto numSamples = buffer.getNumSamples();
@@ -164,7 +178,6 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     auto res2 = apvts.getRawParameterValue("filter2Resonance")->load();
     auto drive2 = apvts.getRawParameterValue("filter2Drive")->load();
 
-    // RIMOZIONE del collo di bottiglia sulla risonanza dei filtri!
     float safeRes1 = juce::jlimit(0.1f, 4.5f, res1);
     float safeRes2 = juce::jlimit(0.1f, 4.5f, res2);
 
@@ -199,7 +212,6 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
             x = filter1.processSample(ch, x);
             if (drive1 > 1.0f)
             {
-                // Uniamo distorsione ad onda sinusoidale piegata (Wavefolding) con tanh per un fuzz devastante e ricco di armoniche
                 float driveSig = x * (drive1 * 1.8f);
                 x = std::sin(driveSig) * 0.4f + std::tanh(driveSig) * 0.6f;
             }
@@ -208,14 +220,12 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
             x = filter2.processSample(ch, x);
             if (drive2 > 1.0f)
             {
-                // Hard asymmetrical saturation simulator (simile ad un transistor al germanio surriscaldato)
                 float driveSig = x * (drive2 * 2.2f);
                 if (driveSig > 0.0f)
                     x = std::tanh(driveSig);
                 else
                     x = std::atan(driveSig * 1.5f) / 1.5f;
                 
-                // Un filo di asimmetria armonica tipica dei pedali Fuzz analogici
                 x = x * 0.9f + (x * x) * 0.1f;
             }
 
@@ -265,7 +275,6 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     float masterGain = (masterGainPtr != nullptr) ? masterGainPtr->load() : 0.8f;
     buffer.applyGain(juce::jlimit(0.0f, 1.0f, masterGain));
 
-    // Scrittura sicura dei campioni nell'oscilloscopio
     for (int i = 0; i < numSamples; ++i)
     {
         visualizerBuffer[visualizerWriteIndex] = buffer.getSample(0, i);
@@ -275,16 +284,20 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 }
 
 juce::AudioProcessorEditor* SambucaAudioProcessor::createEditor() { return new SambucaAudioProcessorEditor (*this); }
+
 void SambucaAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
     copyXmlToBinary (*xml, destData);
 }
+
 void SambucaAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
     if (xmlState.get() != nullptr && xmlState->hasTagName (apvts.state.getType()))
         apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
 }
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new SambucaAudioProcessor(); }
+
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new SambucaAudioProcessor(); 
+}
