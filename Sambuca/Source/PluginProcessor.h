@@ -32,7 +32,7 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     void loadAudioFile (const juce::File& file, int oscIndex);
-
+    void loadSample (int oscIndex, const juce::File& sampleFile);
     juce::AudioProcessorValueTreeState apvts;
 
     // --- Coda circolare per l'oscilloscopio ---
@@ -40,6 +40,7 @@ public:
     float visualizerBuffer[fftSize] = { 0.0f };
     int visualizerWriteIndex = 0;
     std::atomic<bool> hasNewSourceData { false };
+    
 
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
