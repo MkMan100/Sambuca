@@ -123,7 +123,12 @@ public:
         }
     }
 private: 
-    SambucaAudioProcessor& processor; 
+    SambucaAudioProcessor& processor;
+    juce::TextButton loadSample1Btn;
+juce::TextButton loadSample2Btn;
+juce::TextButton loadSample3Btn;
+
+void setupSampleButton (juce::TextButton& b, int oscIndex);
 };
 
 // ==============================================================================
