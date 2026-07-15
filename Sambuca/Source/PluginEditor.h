@@ -138,8 +138,8 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    // Metodi per la gestione della skin dinamica
-    void toggleSkinMode();
+    // Metodi per la gestione del caricamento campioni/skin
+    void loadSampleFile();
     void loadPngFolder();
 
 private: 
@@ -181,16 +181,19 @@ private:
     juce::Label  fxL1, fxL2, fxL3, fxL4, fxL5;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> dTimeAtt, dFbAtt, revAtt, mixAtt, volAtt;
 
+    // CONTROLLI SOSTITUTIVI DEL PAD XY (DUE SLIDER VICINI)
+    juce::Slider padXSlider, padYSlider;
+    juce::Label  padXLabel, padYLabel;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> padXAtt, padYAtt;
+
     void setupRotary (juce::Slider& s, juce::Label& l, const juce::String& text);
     void setupCombo  (juce::ComboBox& c, const juce::StringArray& items, juce::Label& l, const juce::String& text);
 
-    // CONTROLLI UI PER LO SKINNING
-    juce::TextButton skinModeButton;
-    juce::TextButton loadFolderButton;
-    std::unique_ptr<juce::FileChooser> fileChooser;
+    // TASTI CARICAMENTO SAMPLE E SKIN
+    juce::TextButton loadSampleButton;
+    juce::TextButton loadSkinButton;
     
-    bool useCustomSkin = false;
-    juce::Image loadedBg;
+    std::unique_ptr<juce::FileChooser> fileChooser;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SambucaAudioProcessorEditor)
 };
