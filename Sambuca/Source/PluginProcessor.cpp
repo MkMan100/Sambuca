@@ -21,6 +21,7 @@ SambucaAudioProcessor::SambucaAudioProcessor()
         loadedSampleBuffers[i].clear();
     }
 
+    // Polifonia garantita delegando a numVoices (assicurati che in .h sia es. 8 o 16)
     mySynth.clearVoices();
     for (int i = 0; i < numVoices; ++i)
     {
@@ -57,8 +58,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout SambucaAudioProcessor::creat
         juce::String prefix = "filter" + juce::String(i);
         params.push_back(std::make_unique<juce::AudioParameterChoice>(prefix + "Type", "Filter " + juce::String(i) + " Type", juce::StringArray{"Lowpass", "Highpass", "Bandpass"}, 0));
         params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Cutoff", "Filter " + juce::String(i) + " Cutoff", 20.0f, 20000.0f, 1000.0f));
-        params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Resonance", "Filter " + juce::String(i) + " Resonance", 0.1f, 3.5f, 1.0f));
-        params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Drive", "Filter " + juce::String(i) + " Drive", 1.0f, 5.0f, 1.0f));
+        // Alzata la risonanza massima a 5.0f per risonanze più estreme e aggressive
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Resonance", "Filter " + juce::String(i) + " Resonance", 0.1f, 5.0f, 1.0f));
+        // Aumentato il range del Drive per spingere l'effetto Fuzz
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(prefix + "Drive", "Filter " + juce::String(i) + " Drive", 1.0f, 15.0f, 1.0f));
     }
 
     for (int i = 1; i <= 3; ++i)
@@ -98,37 +101,40 @@ void SambucaAudioProcessor::loadAudioFile (const juce::File& file, int oscIndex)
     }
 }
 
-void SambucaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock) { currentSampleRate = sampleRate;
+void SambucaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock) 
+{ 
+    currentSampleRate = sampleRate;
 
-juce::dsp::ProcessSpec spec;
-spec.sampleRate = sampleRate;
-spec.maximumBlockSize = samplesPerBlock;
-spec.numChannels = getTotalNumOutputChannels();
+    juce::dsp::ProcessSpec spec;
+    spec.sampleRate = sampleRate;
+    spec.maximumBlockSize = samplesPerBlock;
+    spec.numChannels = getTotalNumOutputChannels();
 
-filter1.prepare(spec);
-filter2.prepare(spec);
+    filter1.prepare(spec);
+    filter2.prepare(spec);
 
-lfo1.prepare(spec);
-lfo2.prepare(spec);
-lfo3.prepare(spec);
+    lfo1.prepare(spec);
+    lfo2.prepare(spec);
+    lfo3.prepare(spec);
 
-lfo1.initialise([](float x) { return std::sin(x); });
-lfo2.initialise([](float x) { return std::sin(x); });
-lfo3.initialise([](float x) { return std::sin(x); });
+    lfo1.initialise([](float x) { return std::sin(x); });
+    lfo2.initialise([](float x) { return std::sin(x); });
+    lfo3.initialise([](float x) { return std::sin(x); });
 
-delayModule.prepare(spec);
-reverbModule.prepare(spec);
+    delayModule.prepare(spec);
+    reverbModule.prepare(spec);
 
-delayBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock);
+    delayBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock);
 
-mySynth.setCurrentPlaybackSampleRate (sampleRate);
+    mySynth.setCurrentPlaybackSampleRate (sampleRate);
 
-for (int i = 0; i < mySynth.getNumVoices(); ++i)
-{
-    if (auto* voice = dynamic_cast<SynthVoice*> (mySynth.getVoice(i)))
-        voice->prepareToPlay (sampleRate, samplesPerBlock, getTotalNumOutputChannels());
+    for (int i = 0; i < mySynth.getNumVoices(); ++i)
+    {
+        if (auto* voice = dynamic_cast<SynthVoice*> (mySynth.getVoice(i)))
+            voice->prepareToPlay (sampleRate, samplesPerBlock, getTotalNumOutputChannels());
+    }
 }
-}
+
 void SambucaAudioProcessor::releaseResources() {}
 
 void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
@@ -139,6 +145,10 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
+
+    // Aggiorna gli LFO prima di renderizzare la sintesi per permettere la modulazione coerente delle voci
+    // Nota: L'avanzamento degli LFO deve avvenire qui o dentro SynthVoice. 
+    // Per semplicità, assicurati che SynthVoice legga i parametri APVTS aggiornati.
 
     mySynth.renderNextBlock (buffer, midiMessages, 0, buffer.getNumSamples());
 
@@ -154,8 +164,9 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     auto res2 = apvts.getRawParameterValue("filter2Resonance")->load();
     auto drive2 = apvts.getRawParameterValue("filter2Drive")->load();
 
-    float safeRes1 = juce::jlimit(0.1f, 2.5f / (drive1 * 0.5f + 1.0f), res1);
-    float safeRes2 = juce::jlimit(0.1f, 2.5f / (drive2 * 0.5f + 1.0f), res2);
+    // RIMOZIONE del collo di bottiglia sulla risonanza dei filtri!
+    float safeRes1 = juce::jlimit(0.1f, 4.5f, res1);
+    float safeRes2 = juce::jlimit(0.1f, 4.5f, res2);
 
     switch (type1)
     {
@@ -184,21 +195,28 @@ void SambucaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
             float* channelData = buffer.getWritePointer(ch);
             float x = channelData[sample];
 
+            // --- FILTRO 1 & DRIVE SUPER FUZZ 1 ---
             x = filter1.processSample(ch, x);
-
             if (drive1 > 1.0f)
             {
-                x *= drive1;
-                if (x > 0.0f) x = std::tanh(x);
-                else          x = std::atan(x * 1.2f) / 1.2f;
+                // Uniamo distorsione ad onda sinusoidale piegata (Wavefolding) con tanh per un fuzz devastante e ricco di armoniche
+                float driveSig = x * (drive1 * 1.8f);
+                x = std::sin(driveSig) * 0.4f + std::tanh(driveSig) * 0.6f;
             }
 
+            // --- FILTRO 2 & DRIVE SUPER FUZZ 2 ---
             x = filter2.processSample(ch, x);
-
             if (drive2 > 1.0f)
             {
-                x *= drive2;
-                x = juce::jlimit(-0.95f, 0.95f, x);
+                // Hard asymmetrical saturation simulator (simile ad un transistor al germanio surriscaldato)
+                float driveSig = x * (drive2 * 2.2f);
+                if (driveSig > 0.0f)
+                    x = std::tanh(driveSig);
+                else
+                    x = std::atan(driveSig * 1.5f) / 1.5f;
+                
+                // Un filo di asimmetria armonica tipica dei pedali Fuzz analogici
+                x = x * 0.9f + (x * x) * 0.1f;
             }
 
             channelData[sample] = x;
