@@ -28,6 +28,32 @@ void SambucaAudioProcessorEditor::setupCombo (juce::ComboBox& c, const juce::Str
     l.setJustificationType (juce::Justification::centred); 
 }
 
+// Helper per configurare rapidamente i pulsanti di caricamento sample
+void SambucaAudioProcessorEditor::setupSampleButton (juce::TextButton& b, int oscIndex)
+{
+    addAndMakeVisible (b);
+    b.setButtonText ("Load...");
+    b.onClick = [this, oscIndex] 
+    {
+        fileChooser = std::make_unique<juce::FileChooser> (
+            "Seleziona un file audio per l'Oscillatore " + juce::String(oscIndex) + "...",
+            juce::File::getSpecialLocation (juce::File::userHomeDirectory),
+            "*.wav;*.mp3;*.aif;*.aiff"
+        );
+        
+        fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+        [this, oscIndex] (const juce::FileChooser& fc)
+        {
+            auto file = fc.getResult();
+            if (file.existsAsFile())
+            {
+                // Richiama il metodo di caricamento nel tuo Processor
+                audioProcessor.loadSample (oscIndex, file); 
+            }
+        });
+    };
+}
+
 // ==============================================================================
 // COSTRUTTORE
 // ==============================================================================
@@ -35,7 +61,8 @@ void SambucaAudioProcessorEditor::setupCombo (juce::ComboBox& c, const juce::Str
 SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor& p) 
     : AudioProcessorEditor (&p), audioProcessor (p), oscilloscope (p) 
 { 
-    setSize (1000, 700); 
+    // Ingrandita l'altezza da 700 a 820 per distanziare le 5 righe
+    setSize (1000, 820); 
     addAndMakeVisible (oscilloscope);
 
     // Pulsante per switchare tra Standard e Custom PNG Skin
@@ -69,6 +96,7 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     p1Att = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "osc1Pitch", p1Slider);
     setupCombo  (w1Combo, {"Sine","Saw","Square","Wavetable","Sample","Noise"}, oscL3, "Osc 1 Wave");
     w1Att = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(p.apvts, "osc1Waveform", w1Combo);
+    setupSampleButton (loadSample1Btn, 1);
 
     setupRotary (v2Slider, oscL4, "Osc 2 Vol");
     v2Att = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "osc2Volume", v2Slider);
@@ -76,6 +104,7 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     p2Att = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "osc2Pitch", p2Slider);
     setupCombo  (w2Combo, {"Sine","Saw","Square","Wavetable","Sample","Noise"}, oscL6, "Osc 2 Wave");
     w2Att = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(p.apvts, "osc2Waveform", w2Combo);
+    setupSampleButton (loadSample2Btn, 2);
 
     setupRotary (v3Slider, oscL7, "Osc 3 Vol");
     v3Att = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "osc3Volume", v3Slider);
@@ -83,6 +112,7 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     p3Att = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "osc3Pitch", p3Slider);
     setupCombo  (w3Combo, {"Sine","Saw","Square","Wavetable","Sample","Noise"}, oscL9, "Osc 3 Wave");
     w3Att = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(p.apvts, "osc3Waveform", w3Combo);
+    setupSampleButton (loadSample3Btn, 3);
 
     setupRotary (morphSlider, oscL10, "Morphing");
     morphAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "wavetableMorph", morphSlider);
@@ -156,7 +186,7 @@ SambucaAudioProcessorEditor::SambucaAudioProcessorEditor (SambucaAudioProcessor&
     setupRotary (reverbSizeSlider, fxL3, "Reverb Space");
     revAtt   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "reverbSize",    reverbSizeSlider);
     setupRotary (fxMixSlider,      fxL4, "FX Mix");
-    mixAtt   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "fxMix",         fxMixSlider);
+    mixAtt   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "fxMix",        fxMixSlider);
     setupRotary (masterVolSlider,  fxL5, "Master Volume");
     volAtt   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "masterVolume",  masterVolSlider);
 }
@@ -244,7 +274,7 @@ void SambucaAudioProcessorEditor::paint (juce::Graphics& g)
 }
 
 // ==============================================================================
-// METODO RESIZED (Senza variazioni di layout, aggiunti solo i pulsanti di controllo)
+// METODO RESIZED
 // ==============================================================================
 
 void SambucaAudioProcessorEditor::resized() 
@@ -271,27 +301,37 @@ void SambucaAudioProcessorEditor::resized()
         l.setBounds (r.removeFromTop (16));
         s.setBounds (r.reduced (2));
     };
-    auto placeCombo = [](juce::Rectangle<int> r, juce::Label& l, juce::ComboBox& c) {
+    
+    // Modificato per inserire il pulsante sotto la ComboBox (per la colonna di selezione waveform)
+    auto placeComboWithButton = [](juce::Rectangle<int> r, juce::Label& l, juce::ComboBox& c, juce::TextButton& b) {
+        l.setBounds (r.removeFromTop (16));
+        int totalWidgetHeight = r.getHeight();
+        c.setBounds (r.removeFromTop (24).reduced (4, 0));
+        r.removeFromTop (4); // Piccolo spacing
+        b.setBounds (r.removeFromTop (20).reduced (8, 0)); // Pulsante "Load..." alto 20px
+    };
+
+    auto placeComboNormal = [](juce::Rectangle<int> r, juce::Label& l, juce::ComboBox& c) {
         l.setBounds (r.removeFromTop (16));
         r.removeFromTop ((r.getHeight() - 24) / 2);
         c.setBounds (r.removeFromTop (24).reduced (4, 0));
     };
 
-    // OSC
+    // OSC (Qui usiamo placeComboWithButton per inserire i tasti "Load..." sotto le combo degli oscillatori)
     {
         auto row = area.removeFromTop (rowH);
         secOscLabel.setBounds (row.removeFromLeft (labelW));
         int colW = row.getWidth() / 10;
-        placeCombo (row.removeFromLeft (colW).reduced (2), oscL3, w1Combo);
+        placeComboWithButton (row.removeFromLeft (colW).reduced (2), oscL3, w1Combo, loadSample1Btn);
         placeKnob  (row.removeFromLeft (colW).reduced (2), oscL1, v1Slider);
         placeKnob  (row.removeFromLeft (colW).reduced (2), oscL2, p1Slider);
-        placeCombo (row.removeFromLeft (colW).reduced (2), oscL6, w2Combo);
+        placeComboWithButton (row.removeFromLeft (colW).reduced (2), oscL6, w2Combo, loadSample2Btn);
         placeKnob  (row.removeFromLeft (colW).reduced (2), oscL4, v2Slider);
         placeKnob  (row.removeFromLeft (colW).reduced (2), oscL5, p2Slider);
-        placeCombo (row.removeFromLeft (colW).reduced (2), oscL9, w3Combo);
+        placeComboWithButton (row.removeFromLeft (colW).reduced (2), oscL9, w3Combo, loadSample3Btn);
         placeKnob  (row.removeFromLeft (colW).reduced (2), oscL7, v3Slider);
         placeKnob  (row.removeFromLeft (colW).reduced (2), oscL8, p3Slider);
-        placeKnob  (row.reduced (2),                       oscL10, morphSlider);
+        placeKnob  (row.reduced (2),                               oscL10, morphSlider);
     }
 
     // FILTER
@@ -299,11 +339,11 @@ void SambucaAudioProcessorEditor::resized()
         auto row = area.removeFromTop (rowH);
         secFilterLabel.setBounds (row.removeFromLeft (labelW));
         int colW = row.getWidth() / 8;
-        placeCombo (row.removeFromLeft (colW).reduced (2), fltL4, type1Combo);
+        placeComboNormal (row.removeFromLeft (colW).reduced (2), fltL4, type1Combo);
         placeKnob  (row.removeFromLeft (colW).reduced (2), fltL1, cut1Slider);
         placeKnob  (row.removeFromLeft (colW).reduced (2), fltL2, res1Slider);
         placeKnob  (row.removeFromLeft (colW).reduced (2), fltL3, drive1Slider);
-        placeCombo (row.removeFromLeft (colW).reduced (2), fltL8, type2Combo);
+        placeComboNormal (row.removeFromLeft (colW).reduced (2), fltL8, type2Combo);
         placeKnob  (row.removeFromLeft (colW).reduced (2), fltL5, cut2Slider);
         placeKnob  (row.removeFromLeft (colW).reduced (2), fltL6, res2Slider);
         placeKnob  (row.reduced (2),                       fltL7, drive2Slider);
@@ -326,16 +366,16 @@ void SambucaAudioProcessorEditor::resized()
         auto row = area.removeFromTop (rowH);
         secLfoLabel.setBounds (row.removeFromLeft (labelW));
         int colW = row.getWidth() / 12;
-        placeCombo (row.removeFromLeft (colW).reduced (2), lfoL3,  wave1Combo);
-        placeCombo (row.removeFromLeft (colW).reduced (2), lfoL4,  tgt1Combo);
+        placeComboNormal (row.removeFromLeft (colW).reduced (2), lfoL3,  wave1Combo);
+        placeComboNormal (row.removeFromLeft (colW).reduced (2), lfoL4,  tgt1Combo);
         placeKnob  (row.removeFromLeft (colW).reduced (2), lfoL1,  rate1Slider);
         placeKnob  (row.removeFromLeft (colW).reduced (2), lfoL2,  amt1Slider);
-        placeCombo (row.removeFromLeft (colW).reduced (2), lfoL7,  wave2Combo);
-        placeCombo (row.removeFromLeft (colW).reduced (2), lfoL8,  tgt2Combo);
+        placeComboNormal (row.removeFromLeft (colW).reduced (2), lfoL7,  wave2Combo);
+        placeComboNormal (row.removeFromLeft (colW).reduced (2), lfoL8,  tgt2Combo);
         placeKnob  (row.removeFromLeft (colW).reduced (2), lfoL5,  rate2Slider);
         placeKnob  (row.removeFromLeft (colW).reduced (2), lfoL6,  amt2Slider);
-        placeCombo (row.removeFromLeft (colW).reduced (2), lfoL11, wave3Combo);
-        placeCombo (row.removeFromLeft (colW).reduced (2), lfoL12, tgt3Combo);
+        placeComboNormal (row.removeFromLeft (colW).reduced (2), lfoL11, wave3Combo);
+        placeComboNormal (row.removeFromLeft (colW).reduced (2), lfoL12, tgt3Combo);
         placeKnob  (row.removeFromLeft (colW).reduced (2), lfoL9,  rate3Slider);
         placeKnob  (row.reduced (2),                       lfoL10, amt3Slider);
     }
