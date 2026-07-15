@@ -192,5 +192,5 @@ private:
     bool useCustomSkin = false;
     juce::Image loadedBg;
 
-    JURE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SambucaAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SambucaAudioProcessorEditor)
 };
