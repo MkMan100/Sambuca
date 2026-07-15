@@ -1,12 +1,16 @@
 #pragma once
 
-#include <JuceHeader.h>
+// Inclusioni dirette dei moduli JUCE richiesti per l'editor
+#include <juce_gui_basics/juce_gui_basics.h>
+#include <juce_gui_extra/juce_gui_extra.h>
+#include <juce_audio_utils/juce_audio_utils.h>
+#include <juce_audio_processors/juce_audio_processors.h>
+
 #include "PluginProcessor.h"
 
 // ==============================================================================
-// Se hai una classe LookAndFeel personalizzata per le PNG, dichiarala o includila.
-// Qui definiamo una classe base fittizia se non la includi già altrove,
-// in modo che il compilatore conosca 'PngLookAndFeel'.
+// Classe LookAndFeel personalizzata per le PNG
+// ==============================================================================
 class PngLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -17,7 +21,6 @@ public:
                     juce::Image bNormal, juce::Image bPressed)
     {
         background = bg;
-        // Salva qui le altre immagini da usare nei metodi Draw del LookAndFeel
     }
 
 private:
@@ -25,7 +28,7 @@ private:
 };
 
 // ==============================================================================
-// CLASSE OSCILLOSCOPIO (Mantenuta come riferimento per il compilatore)
+// CLASSE OSCILLOSCOPIO
 // ==============================================================================
 class OscilloscopeComponent : public juce::Component
 {
