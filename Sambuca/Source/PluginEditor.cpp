@@ -1,6 +1,5 @@
-#include "PluginProcessor.h" 
+#include "PluginProcessor.h"
 #include "PluginEditor.h"
-
 
 // Istanza statica o membro del LookAndFeel personalizzato
 static PngLookAndFeel customLookAndFeel;
@@ -28,7 +27,7 @@ void SambucaAudioProcessorEditor::setupCombo (juce::ComboBox& c, const juce::Str
     l.setJustificationType (juce::Justification::centred); 
 }
 
-// Helper per configurare rapidamente i pulsanti di caricamento sample
+// Helper per configurare i pulsanti con mapping indice corretto (1, 2, 3 -> 0, 1, 2)
 void SambucaAudioProcessorEditor::setupSampleButton (juce::TextButton& b, int oscIndex)
 {
     addAndMakeVisible (b);
@@ -47,8 +46,8 @@ void SambucaAudioProcessorEditor::setupSampleButton (juce::TextButton& b, int os
             auto file = fc.getResult();
             if (file.existsAsFile())
             {
-                // Richiama il metodo di caricamento nel tuo Processor
-                audioProcessor.loadSample (oscIndex, file); 
+                // Converte l'indice in base-0 per chiamare la tua funzione loadSample originaria nel Processor
+                audioProcessor.loadSample (oscIndex - 1, file); 
             }
         });
     };
