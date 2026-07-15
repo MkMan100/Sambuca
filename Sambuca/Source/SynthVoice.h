@@ -4,63 +4,106 @@
 
 struct SambucaOscillator 
 {
-    enum class Mode { StandardWave, LoadedSample };
+    enum class Mode { StandardWave, MorphWave, LoadedSample };
     Mode currentMode = Mode::StandardWave;
-    juce::dsp::Oscillator<float> waveOsc;
+    
+    // Generatore a fase manuale per garantire morphing perfetto e stabilità
+    double phase = 0.0;
+    double phaseIncrement = 0.0;
+    
     juce::AudioBuffer<float>* sampleBufferRef = nullptr;
     double samplePosition = 0.0;
     double sampleIncrement = 0.0;
     bool isLooping = true;
+    int waveType = 0;
 
-    void prepare (const juce::dsp::ProcessSpec& spec) { waveOsc.prepare (spec); }
+    void prepare (const juce::dsp::ProcessSpec& spec) 
+    {
+        phase = 0.0;
+        samplePosition = 0.0;
+    }
     
     void setFrequency (float frequency, double hostSampleRate)
     {
-        if (currentMode == Mode::StandardWave) 
+        if (hostSampleRate > 0)
         {
-            waveOsc.setFrequency (frequency);
-        }
-        else if (currentMode == Mode::LoadedSample && sampleBufferRef != nullptr && hostSampleRate > 0)
-        {
-            // Evita divisioni per zero o crash con buffer non validi o vuoti
-            if (sampleBufferRef->getNumSamples() <= 100)
+            phaseIncrement = frequency / hostSampleRate;
+            
+            if (currentMode == Mode::LoadedSample && sampleBufferRef != nullptr)
             {
-                sampleIncrement = 0.0;
-                return;
+                if (sampleBufferRef->getNumSamples() <= 100)
+                {
+                    sampleIncrement = 0.0;
+                    return;
+                }
+                float rootFreq = juce::MidiMessage::getMidiNoteInHertz (60); 
+                double pitchRatio = frequency / rootFreq;
+                sampleIncrement = pitchRatio;
             }
-            float rootFreq = juce::MidiMessage::getMidiNoteInHertz (60); 
-            double pitchRatio = frequency / rootFreq;
-            sampleIncrement = pitchRatio;
         }
     }
 
     void setWaveform (int type)
     {
-        // Convenzione parametri: 0:Sine, 1:Saw, 2:Square, 3:Wavetable, 4:Sample, 5:Noise
-        if (type == 3 || type == 4)
+        waveType = type;
+        // Convenzione: 0:Sine, 1:Saw, 2:Square, 3:Wavetable (Morph), 4:Sample, 5:Noise
+        if (type == 3)
+        {
+            currentMode = Mode::MorphWave;
+        }
+        else if (type == 4)
         {
             currentMode = Mode::LoadedSample;
         }
         else
         {
             currentMode = Mode::StandardWave;
-            switch (type)
-            {
-                case 0: waveOsc.initialise ([] (float x) { return std::sin (x); }); break; // Sine
-                case 1: waveOsc.initialise ([] (float x) { return x / juce::MathConstants<float>::pi; }); break; // Saw
-                case 2: waveOsc.initialise ([] (float x) { return x < 0.0f ? -1.0f : 1.0f; }); break; // Square
-                case 5: waveOsc.initialise ([] (float x) { return ((float)rand() / RAND_MAX) * 2.0f - 1.0f; }); break; // Noise
-                default: waveOsc.initialise ([] (float x) { return std::sin (x); }); break;
-            }
         }
     }
 
-    float processSample()
+    float processSample (float morphValue)
     {
-        if (currentMode == Mode::StandardWave)
-            return waveOsc.processSample (0.0f);
+        // Avanzamento fase per sintesi oscillator
+        phase += phaseIncrement;
+        if (phase >= 1.0) phase -= 1.0;
 
-        // Controllo di sicurezza cruciale per evitare crash in fase di avvio/riproduzione campioni vuoti
+        if (currentMode == Mode::StandardWave)
+        {
+            switch (waveType)
+            {
+                case 0: // Sine
+                    return std::sin (phase * 2.0 * juce::MathConstants<double>::pi);
+                case 1: // Saw
+                    return static_cast<float>(2.0 * phase - 1.0);
+                case 2: // Square
+                    return phase < 0.5 ? -0.8f : 0.8f;
+                case 5: // Noise
+                    return ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
+                default:
+                    return 0.0f;
+            }
+        }
+
+        if (currentMode == Mode::MorphWave)
+        {
+            // Calcola le tre forme fondamentali sulla stessa fase per evitare cancellazioni
+            float sine = std::sin (phase * 2.0 * juce::MathConstants<double>::pi);
+            float saw = static_cast<float>(2.0 * phase - 1.0);
+            float square = phase < 0.5 ? -0.8f : 0.8f;
+
+            // Interpolazione lineare continua basata sul parametro Morphing (0.0 -> 1.0)
+            if (morphValue < 0.5f)
+            {
+                float t = morphValue * 2.0f; // Riscalato [0, 1]
+                return (1.0f - t) * sine + t * saw; // Morph da Sine a Saw
+            }
+            else
+            {
+                float t = (morphValue - 0.5f) * 2.0f; // Riscalato [0, 1]
+                return (1.0f - t) * saw + t * square; // Morph da Saw a Square
+            }
+        }
+
         if (currentMode == Mode::LoadedSample && sampleBufferRef != nullptr && sampleBufferRef->getNumSamples() > 100)
         {
             auto numSamples = sampleBufferRef->getNumSamples();
@@ -79,11 +122,9 @@ struct SambucaOscillator
 
             float fraction = static_cast<float> (samplePosition - static_cast<int> (samplePosition));
             
-            // Lettura mono (canale 0) del sample caricato con limiti di sicurezza
             float s1 = sampleBufferRef->getSample (0, index1 % numSamples);
             float s2 = (index2 < numSamples || isLooping) ? sampleBufferRef->getSample (0, index2 % numSamples) : 0.0f;
 
-            // Interpolazione lineare
             float output = s1 + fraction * (s2 - s1);
 
             samplePosition += sampleIncrement;
@@ -99,6 +140,7 @@ struct SambucaOscillator
     void resetSamplePosition()
     {
         samplePosition = 0.0;
+        phase = 0.0;
     }
 };
 
@@ -128,7 +170,7 @@ public:
         for (int i = 0; i < 3; ++i)
             oscillators[i].resetSamplePosition();
 
-        updateOscillators(0.0f); // Inizializza frequenza oscillatori senza modulazione LFO istantanea
+        updateOscillators(0.0f);
         adsr.noteOn();
     }
 
@@ -148,8 +190,12 @@ public:
         for (int i = 0; i < 3; ++i) 
             oscillators[i].prepare (spec);
             
-        voiceLFO.prepare (spec);
-        voiceLFO.initialise ([] (float x) { return std::sin (x); });
+        // Prepariamo tutti e 3 gli LFO di voce
+        for (int i = 0; i < 3; ++i)
+        {
+            voiceLFOs[i].prepare (spec);
+            voiceLFOs[i].initialise ([] (float x) { return std::sin (x); });
+        }
 
         voiceFilter1.prepare (spec);
         
@@ -162,7 +208,6 @@ public:
         adsr.setParameters (defaultParams);
     }
 
-    // Aggiunto parametro per la modulazione LFO del Pitch
     void updateOscillators (float pitchModulationSemitones)
     {
         float baseFreq = juce::MidiMessage::getMidiNoteInHertz (currentMidiNote);
@@ -194,16 +239,14 @@ public:
     {
         if (!isVoiceActive()) return;
 
-        // Recupero parametri LFO 1
-        auto* lfoRateParam = apvts.getRawParameterValue("lfo1Rate");
-        auto* lfoAmountParam = apvts.getRawParameterValue("lfo1Amount");
-        auto* lfoTargetParam = apvts.getRawParameterValue("lfo1Target"); // Parametro di destinazione
-        
-        float lfoRate = (lfoRateParam != nullptr) ? lfoRateParam->load() : 1.0f;
-        float lfoAmount = (lfoAmountParam != nullptr) ? lfoAmountParam->load() : 0.0f;
-        int lfoTarget = (lfoTargetParam != nullptr) ? static_cast<int>(lfoTargetParam->load()) : 0; // 0=None, 1=Cutoff, 2=Volume, 3=Pitch
-
-        voiceLFO.setFrequency (lfoRate);
+        // Configura la frequenza dei 3 LFO di questa voce
+        for (int i = 0; i < 3; ++i)
+        {
+            juce::String prefix = "lfo" + juce::String(i + 1);
+            auto* lfoRateParam = apvts.getRawParameterValue(prefix + "Rate");
+            float lfoRate = (lfoRateParam != nullptr) ? lfoRateParam->load() : 1.0f;
+            voiceLFOs[i].setFrequency (lfoRate);
+        }
 
         // Aggiorna ADSR
         auto* att = apvts.getRawParameterValue("attack");
@@ -248,72 +291,64 @@ public:
         auto* morphParam = apvts.getRawParameterValue("wavetableMorph");
         float morphValue = (morphParam != nullptr) ? morphParam->load() : 0.0f;
 
-        // Scriviamo direttamente sul buffer audio di destinazione senza allocazioni aggiuntive pericolose
         for (int sample = 0; sample < numSamples; ++sample)
         {
-            float lfoOut = voiceLFO.processSample (0.0f); // Range [-1.0, 1.0]
-            float currentLfoValue = lfoOut * lfoAmount;
+            // Calcoliamo le uscite correnti di tutti e 3 gli LFO
+            float lfoOut[3];
+            for (int i = 0; i < 3; ++i)
+                lfoOut[i] = voiceLFOs[i].processSample (0.0f); // Range [-1.0, 1.0]
 
-            // Inizializziamo le modulazioni specifiche
+            // Inizializziamo le modulazioni cumulative
             float filterModulation = 0.0f;
             float volumeModulation = 1.0f;
             float pitchModulation = 0.0f;
 
-            // Applichiamo la modulazione in base al target selezionato
-            if (lfoTarget == 1) // Filter Cutoff
+            // Applichiamo e sommiamo le modulazioni da tutti e 3 gli LFO basandoci sul loro target
+            for (int i = 0; i < 3; ++i)
             {
-                filterModulation = currentLfoValue * 5000.0f; // Modula fino a 5000 Hz
-            }
-            else if (lfoTarget == 2) // Volume
-            {
-                // Un'escursione di volume coerente riducendo di una frazione proporzionale all'LFO
-                volumeModulation = juce::jlimit(0.0f, 1.0f, 1.0f - (std::abs(currentLfoValue) * 0.9f));
-            }
-            else if (lfoTarget == 3) // Pitch Detune (in semitoni)
-            {
-                pitchModulation = currentLfoValue * 12.0f; // Modulazione fino a un'ottava (12 semitoni)
+                juce::String prefix = "lfo" + juce::String(i + 1);
+                auto* amountParam = apvts.getRawParameterValue(prefix + "Amount");
+                auto* targetParam = apvts.getRawParameterValue(prefix + "Target");
+                
+                float lfoAmount = (amountParam != nullptr) ? amountParam->load() : 0.0f;
+                int lfoTarget = (targetParam != nullptr) ? static_cast<int>(targetParam->load()) : 0; // 0=None, 1=Cutoff, 2=Volume, 3=Pitch
+
+                float modulatedVal = lfoOut[i] * lfoAmount;
+
+                if (lfoTarget == 1)      // Filter Cutoff
+                    filterModulation += modulatedVal * 6000.0f; // Fino a 6kHz di escursione accumulata
+                else if (lfoTarget == 2) // Volume
+                    volumeModulation *= juce::jlimit(0.0f, 1.0f, 1.0f - (std::abs(modulatedVal) * 0.9f));
+                else if (lfoTarget == 3) // Pitch (in semitoni)
+                    pitchModulation += modulatedVal * 12.0f; // Fino a un'ottava
             }
 
-            // Aggiorna frequenze con l'eventuale modulazione pitch
+            // Aggiorna frequenze oscillatori
             updateOscillators(pitchModulation);
 
-            // Generazione e somma campioni
-            float s1 = oscillators[0].processSample() * v1;
-            float s2 = oscillators[1].processSample() * v2;
-            float s3 = oscillators[2].processSample() * v3;
+            // Generazione e somma dei 3 oscillatori indipendenti!
+            // Ciascuno gestisce autonomamente il suo morphing o il suo sample
+            float s1 = oscillators[0].processSample (morphValue) * v1;
+            float s2 = oscillators[1].processSample (morphValue) * v2;
+            float s3 = oscillators[2].processSample (morphValue) * v3;
 
-            float sampleSum = 0.0f;
-            if (morphValue < 0.5f)
-            {
-                float t = morphValue * 2.0f;
-                sampleSum = (1.0f - t) * s1 + t * s2;
-            }
-            else
-            {
-                float t = (morphValue - 0.5f) * 2.0f;
-                sampleSum = (1.0f - t) * s2 + t * s3;
-            }
+            // Somma reale (i 3 oscillatori suonano assieme, polifonici e indipendenti)
+            float sampleSum = s1 + s2 + s3;
 
-            // Applica ADSR, Velocity e modulazione del volume
+            // Applica ADSR, Velocity e modulazione del volume cumulativa degli LFO
             float envelope = adsr.getNextSample();
             float voiceSample = sampleSum * envelope * noteVelocity * volumeModulation;
 
-            // Calcolo e applicazione del filtro modulato
+            // Calcolo del cutoff modulato
             float modulatedCutoff1 = juce::jlimit (20.0f, 20000.0f, baseCutoff1 + filterModulation);
             voiceFilter1.setCutoffFrequencyHz (modulatedCutoff1);
 
-            // Applica il filtro su tutti i canali per questo singolo campione
+            // Scrittura e processamento audio
             for (int channel = 0; channel < outputBuffer.getNumChannels(); ++channel)
             {
-                // Inseriamo il campione direttamente nel canale dell'outputBuffer
-                float filteredSample = voiceSample;
-                
-                // Il LadderFilter JUCE elabora tramite AudioBlock. Aggiorniamo il singolo campione.
-                // Inseriamo temporaneamente il valore nel buffer per farlo elaborare al dsp del filtro
-                outputBuffer.setSample (channel, startSample + sample, filteredSample);
+                outputBuffer.setSample (channel, startSample + sample, voiceSample);
             }
 
-            // Processa il filtro di voce sul blocco corrente di 1 campione per mantenere il suono aggiornato
             juce::dsp::AudioBlock<float> singleSampleBlock (outputBuffer);
             juce::dsp::AudioBlock<float> subBlock = singleSampleBlock.getSubBlock (startSample + sample, 1);
             juce::dsp::ProcessContextReplacing<float> context (subBlock);
@@ -335,6 +370,8 @@ private:
     juce::ADSR adsr;
     float noteVelocity = 0.0f;
     int currentMidiNote = 60;
-    juce::dsp::Oscillator<float> voiceLFO;
+    
+    // Array di 3 LFO reali e attivi
+    juce::dsp::Oscillator<float> voiceLFOs[3];
     juce::dsp::LadderFilter<float> voiceFilter1;
 };
