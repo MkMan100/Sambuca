@@ -326,16 +326,15 @@ public:
             // Aggiorna frequenze oscillatori
             updateOscillators(pitchModulation);
 
-            // Generazione e somma dei 3 oscillatori indipendenti!
-            // Ciascuno gestisce autonomamente il suo morphing o il suo sample
+            // Generazione e somma dei 3 oscillatori indipendenti
             float s1 = oscillators[0].processSample (morphValue) * v1;
             float s2 = oscillators[1].processSample (morphValue) * v2;
             float s3 = oscillators[2].processSample (morphValue) * v3;
 
-            // Somma reale (i 3 oscillatori suonano assieme, polifonici e indipendenti)
+            // Somma reale
             float sampleSum = s1 + s2 + s3;
 
-            // Applica ADSR, Velocity e modulazione del volume cumulativa degli LFO
+            // Applica ADSR, Velocity e modulazione del volume
             float envelope = adsr.getNextSample();
             float voiceSample = sampleSum * envelope * noteVelocity * volumeModulation;
 
@@ -343,10 +342,10 @@ public:
             float modulatedCutoff1 = juce::jlimit (20.0f, 20000.0f, baseCutoff1 + filterModulation);
             voiceFilter1.setCutoffFrequencyHz (modulatedCutoff1);
 
-            // Scrittura e processamento audio
+            // CORREZIONE: Somma il campione a quello già esistente nel buffer usando addSample invece di setSample
             for (int channel = 0; channel < outputBuffer.getNumChannels(); ++channel)
             {
-                outputBuffer.setSample (channel, startSample + sample, voiceSample);
+                outputBuffer.addSample (channel, startSample + sample, voiceSample);
             }
 
             juce::dsp::AudioBlock<float> singleSampleBlock (outputBuffer);
